@@ -22,11 +22,13 @@ const (
 
 var (
 	// ErrorParamTypeError defines param type error
-	ErrorParamTypeError = NewFormatError(http.StatusBadRequest, ReasonRequest, "param %s should be %s, but got %s")
+	ErrorParamTypeError = NewFormatError(http.StatusBadRequest, ReasonRequest, "%s should be %s, but got %s")
+	// ErrorParamValueError defines param value error
+	ErrorParamValueError = NewFormatError(http.StatusBadRequest, ReasonRequest, "value of %s should be %s, but got %s")
 	// ErrorParamNotFound defines request param error
 	ErrorParamNotFound = NewFormatError(http.StatusBadRequest, ReasonRequest, "can't find param %s in request")
 	// ErrorContentNotFound defines not found error
-	ErrorContentNotFound = NewFormatError(http.StatusNotFound, ReasonInternal, "content %s not found")
+	ErrorContentNotFound = NewFormatError(http.StatusNotFound, ReasonInternal, "%s not found")
 	// ErrorInvalidParam defines invalid error
 	ErrorInvalidParam = NewFormatError(http.StatusBadRequest, ReasonRequest, "%s is invalid: %v")
 	// ErrorResourceExist defines resource conflict error
@@ -39,7 +41,7 @@ var (
 	// ErrorInternalTypeError defines internal type error
 	ErrorInternalTypeError = NewFormatError(http.StatusInternalServerError, ReasonInternal, "type of %s should be %s, but got %s")
 	// ErrorUnknownNotFoundError defines not found error that we can't find a reason
-	ErrorUnknownNotFoundError = NewFormatError(http.StatusInternalServerError, ReasonInternal, "content %s not found, may be it's a serious error")
+	ErrorUnknownNotFoundError = NewFormatError(http.StatusInternalServerError, ReasonInternal, "%s not found, may be it's a serious error")
 	// ErrorInternalUnknown defines internal unknown error that we can't find a reason
 	ErrorInternalUnknown = NewFormatError(http.StatusInternalServerError, ReasonInternal, "%v")
 )

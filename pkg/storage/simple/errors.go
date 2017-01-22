@@ -14,7 +14,7 @@ var (
 	// ErrorNoStorageDriver defines storage driver does not specify
 	ErrorNoStorageDriver = errors.NewStaticError(http.StatusInternalServerError, errors.ReasonInternal, "storage driver does not specify")
 	// ErrorNoParameter defines parameter can't be nil or empty
-	ErrorNoParameter = errors.NewFormatError(http.StatusInternalServerError, errors.ReasonInternal, "parameter '%s' can't be nil or empty")
+	ErrorNoParameter = errors.NewFormatError(http.StatusInternalServerError, errors.ReasonInternal, "%s can't be nil or empty")
 	// ErrorNoResource defines can't find resource from package
 	ErrorNoResource = errors.NewFormatError(http.StatusConflict, errors.ReasonInternal, "can't find %s from package: %v")
 	// ErrorNeedForcedDelete defines need to force to delete resource
@@ -31,4 +31,6 @@ var (
 	ErrorInvalidStatus = errors.ErrorInvalidStatus
 	// ErrorParamTypeError defines param type error
 	ErrorParamTypeError = errors.ErrorParamTypeError
+	// ErrorContentNotFound defines not found error
+	ErrorContentNotFound = errors.ErrorContentNotFound
 )
