@@ -173,7 +173,7 @@ func (s *Space) Exists(ctx context.Context) bool {
 	return keyExists(ctx, s.SpaceManager.Backend, s.Prefix)
 }
 
-// VersionMetadata returns all metadata of charts in the current Space
+// VersionMetadata returns all metadata of charts in current Space
 func (s *Space) VersionMetadata(ctx context.Context) ([]*storage.Metadata, error) {
 	list, err := s.List(ctx)
 	if err != nil {
@@ -255,7 +255,7 @@ func (c *Chart) Exists(ctx context.Context) bool {
 	return keyExists(ctx, c.Space.SpaceManager.Backend, c.Prefix)
 }
 
-// VersionMetadata returns all metadata of charts in the current chart
+// VersionMetadata returns all metadata of charts in current chart
 func (c *Chart) VersionMetadata(ctx context.Context) ([]*storage.Metadata, error) {
 	list, err := c.List(ctx)
 	if err != nil {
@@ -419,7 +419,7 @@ func (v *Version) Exists(ctx context.Context) bool {
 	return keyExists(ctx, v.Backend, v.Prefix)
 }
 
-// Metadata returns a Metadata of the current chart
+// Metadata returns a Metadata of current chart
 func (v *Version) Metadata(ctx context.Context) (*storage.Metadata, error) {
 	if err := v.Validate(ctx); err != nil {
 		return nil, err
@@ -437,7 +437,7 @@ func (v *Version) Metadata(ctx context.Context) (*storage.Metadata, error) {
 	return meta, nil
 }
 
-// Values gets data from values.yaml file which in the current chart data
+// Values gets data from values.yaml file which in current chart data
 func (v *Version) Values(ctx context.Context) ([]byte, error) {
 	if err := v.Validate(ctx); err != nil {
 		return nil, err

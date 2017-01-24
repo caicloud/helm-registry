@@ -62,7 +62,7 @@ type Space interface {
 	// Exists returns whether the space exists
 	Exists(ctx context.Context) bool
 
-	// VersionMetadata returns all version metadata in the current space
+	// VersionMetadata returns all version metadata in current space
 	VersionMetadata(ctx context.Context) ([]*Metadata, error)
 
 	// Chart returns a Chart for managing specific chart
@@ -85,7 +85,7 @@ type Chart interface {
 	// Exists returns whether the chart exists
 	Exists(ctx context.Context) bool
 
-	// VersionMetadata returns all version metadata in the current chart
+	// VersionMetadata returns all version metadata in current chart
 	VersionMetadata(ctx context.Context) ([]*Metadata, error)
 
 	// Version returns a Version for managing specific version
@@ -111,9 +111,9 @@ type Version interface {
 	// Validate validates whether the chart is valid and can be modified
 	Validate(ctx context.Context) error
 
-	// Metadata returns a Metadata of the current chart
+	// Metadata returns a Metadata of current chart
 	Metadata(ctx context.Context) (*Metadata, error)
 
-	// Values gets data from values.yaml file which in the current chart data
+	// Values gets data from values.yaml file which in current chart data
 	Values(ctx context.Context) ([]byte, error)
 }
