@@ -5,12 +5,10 @@ Copyright 2017 caicloud authors. All rights reserved.
 package simple
 
 import (
-	"archive/tar"
 	"bytes"
-	"compress/gzip"
 	"context"
+	"encoding/json"
 	"fmt"
-	"io"
 	"path"
 	"regexp"
 	"strings"
@@ -19,13 +17,12 @@ import (
 	"github.com/caicloud/helm-registry/pkg/storage"
 	"github.com/caicloud/helm-registry/pkg/storage/driver"
 	"k8s.io/helm/pkg/chartutil"
-	"k8s.io/helm/pkg/proto/hapi/chart"
 )
 
 const managerName = "simple"
 const chartPackageName = "chart.tgz"
-const metadataName = "metadata.yaml"
-const valuesName = "values.yaml"
+const metadataName = "metadata.dat"
+const valuesName = "values.dat"
 
 // chart status
 const statusName = ".status"
@@ -77,45 +74,60 @@ func NewSpaceManager(backend driver.StorageDriver) *SpaceManager {
 	return &SpaceManager{"/", backend}
 }
 
-// Name returns name of the manager
-func (gm *SpaceManager) Name() string {
+// Kind returns kind name
+func (sm *SpaceManager) Kind() string {
 	return managerName
 }
 
 // Create creates a new Space with space name
-func (gm *SpaceManager) Create(ctx context.Context, space string) (storage.Space, error) {
-	if !validateName(space) {
-		return nil, ErrorInvalidParam.Format("space", space)
+func (sm *SpaceManager) Create(ctx context.Context, space string) (storage.Space, error) {
+	newSpace, err := sm.Space(ctx, space)
+	if err != nil {
+		return nil, err
 	}
-	key := path.Join(gm.Prefix, space, statusName)
-	_, err := gm.Backend.Stat(ctx, key)
-	if err == nil {
+	if newSpace.Exists(ctx) {
 		return nil, ErrorResourceExist.Format(space)
 	}
-	// key does not exist
-	err = gm.Backend.PutContent(ctx, key, []byte(statusSuccess))
+	// space does not exist
+	key := path.Join(sm.Prefix, space, statusName)
+	err = sm.Backend.PutContent(ctx, key, []byte(statusSuccess))
 	if err != nil {
 		return nil, ErrorInternalUnknown.Format(err)
 	}
-	return gm.Space(ctx, space)
+	return sm.Space(ctx, space)
 }
 
 // Delete deletes specific space.
-func (gm *SpaceManager) Delete(ctx context.Context, space string) error {
-	return deleteKeys(ctx, gm.Backend, path.Join(gm.Prefix, space), true)
+func (sm *SpaceManager) Delete(ctx context.Context, space string) error {
+	return deleteKeys(ctx, sm.Backend, path.Join(sm.Prefix, space), true)
 }
 
 // List returns all space names
-func (gm *SpaceManager) List(ctx context.Context) ([]string, error) {
-	return list(ctx, gm.Backend, gm.Prefix, validateName)
+func (sm *SpaceManager) List(ctx context.Context) ([]string, error) {
+	return list(ctx, sm.Backend, sm.Prefix, validateName)
 }
 
 // Space returns a Space that it can manage specific space
-func (gm *SpaceManager) Space(ctx context.Context, space string) (storage.Space, error) {
+func (sm *SpaceManager) Space(ctx context.Context, space string) (storage.Space, error) {
 	if !validateName(space) {
 		return nil, ErrorInvalidParam.Format("space", space)
 	}
-	return NewSpace(gm, space)
+	return NewSpace(sm, space)
+}
+
+// Validate validates whether the value of vType is valid.
+func (sm *SpaceManager) Validate(ctx context.Context, vType storage.ValidationType, value interface{}) bool {
+	str, ok := value.(string)
+	if !ok {
+		return false
+	}
+	switch vType {
+	case storage.ValidationTypeSpaceName, storage.ValidationTypeChartName:
+		return validateName(str)
+	case storage.ValidationTypeVersionNumber:
+		return validateVersion(str)
+	}
+	return false
 }
 
 // Space defines methods for managing specific chart space
@@ -136,39 +148,44 @@ func NewSpace(spaceManager *SpaceManager, space string) (*Space, error) {
 	return &Space{spaceManager, path.Join(spaceManager.Prefix, space), space}, nil
 }
 
-// Name returns name
-func (sm *Space) Name() string {
+// Kind returns kind name
+func (s *Space) Kind() string {
 	return managerName
 }
 
-// Create creates a new Chart
-func (sm *Space) Create(ctx context.Context, chart string) (storage.Chart, error) {
-	return sm.Chart(ctx, chart)
+// Name returns name
+func (s *Space) Name() string {
+	return s.Space
 }
 
 // Delete deletes specific chart
-func (sm *Space) Delete(ctx context.Context, chart string) error {
-	return deleteKeys(ctx, sm.SpaceManager.Backend, path.Join(sm.Prefix, chart), true)
+func (s *Space) Delete(ctx context.Context, chart string) error {
+	return deleteKeys(ctx, s.SpaceManager.Backend, path.Join(s.Prefix, chart), true)
 }
 
 // List returns all chart names
-func (sm *Space) List(ctx context.Context) ([]string, error) {
-	return list(ctx, sm.SpaceManager.Backend, sm.Prefix, validateName)
+func (s *Space) List(ctx context.Context) ([]string, error) {
+	return list(ctx, s.SpaceManager.Backend, s.Prefix, validateName)
 }
 
-// Charts returns all metadatas of charts in the current Space
-func (sm *Space) Charts(ctx context.Context) ([]*chart.Metadata, error) {
-	list, err := sm.List(ctx)
+// Exists returns whether the space exists
+func (s *Space) Exists(ctx context.Context) bool {
+	return keyExists(ctx, s.SpaceManager.Backend, s.Prefix)
+}
+
+// VersionMetadata returns all metadata of charts in current Space
+func (s *Space) VersionMetadata(ctx context.Context) ([]*storage.Metadata, error) {
+	list, err := s.List(ctx)
 	if err != nil {
-		return nil, ErrorInternalUnknown.Format(err)
+		return nil, err
 	}
-	mtAll := make([]*chart.Metadata, 0, len(list))
+	mtAll := make([]*storage.Metadata, 0, len(list))
 	for _, key := range list {
-		cm, err := sm.Create(ctx, key)
+		chart, err := s.Chart(ctx, key)
 		if err != nil {
 			return nil, err
 		}
-		mtList, err := cm.Versions(ctx)
+		mtList, err := chart.VersionMetadata(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -178,11 +195,11 @@ func (sm *Space) Charts(ctx context.Context) ([]*chart.Metadata, error) {
 }
 
 // Chart returns a Chart for managing specific chart
-func (sm *Space) Chart(ctx context.Context, chart string) (storage.Chart, error) {
+func (s *Space) Chart(ctx context.Context, chart string) (storage.Chart, error) {
 	if !validateName(chart) {
 		return nil, ErrorInvalidParam.Format("chart", chart)
 	}
-	return NewChart(sm, chart)
+	return NewChart(s, chart)
 }
 
 // Chart defines methods for managing specific chart
@@ -203,49 +220,54 @@ func NewChart(space *Space, chart string) (*Chart, error) {
 	return &Chart{space, path.Join(space.Prefix, chart), chart}, nil
 }
 
-// Name returns name
-func (cm *Chart) Name() string {
+// Kind returns kind name
+func (c *Chart) Kind() string {
 	return managerName
 }
 
-// Create creates a new Version
-func (cm *Chart) Create(ctx context.Context, version string) (storage.Version, error) {
-	return cm.Version(ctx, version)
+// Name returns name
+func (c *Chart) Name() string {
+	return c.Chart
 }
 
 // Delete deletes specific chart
-func (cm *Chart) Delete(ctx context.Context, version string) error {
-	err := deleteKeys(ctx, cm.Space.SpaceManager.Backend, path.Join(cm.Prefix, version), true)
+func (c *Chart) Delete(ctx context.Context, version string) error {
+	err := deleteKeys(ctx, c.Space.SpaceManager.Backend, path.Join(c.Prefix, version), true)
 	if err != nil {
 		return err
 	}
 
-	versions, err := cm.List(ctx)
+	versions, err := c.List(ctx)
 	if err == nil && len(versions) <= 0 {
 		// delete chart if has no version
-		return cm.Space.Delete(ctx, cm.Chart)
+		return c.Space.Delete(ctx, c.Chart)
 	}
 	return err
 }
 
 // List returns all version numbers
-func (cm *Chart) List(ctx context.Context) ([]string, error) {
-	return list(ctx, cm.Space.SpaceManager.Backend, cm.Prefix, validateVersion)
+func (c *Chart) List(ctx context.Context) ([]string, error) {
+	return list(ctx, c.Space.SpaceManager.Backend, c.Prefix, validateVersion)
 }
 
-// Versions returns all metadatas of charts in the current chart
-func (cm *Chart) Versions(ctx context.Context) ([]*chart.Metadata, error) {
-	list, err := cm.List(ctx)
+// Exists returns whether the chart exists
+func (c *Chart) Exists(ctx context.Context) bool {
+	return keyExists(ctx, c.Space.SpaceManager.Backend, c.Prefix)
+}
+
+// VersionMetadata returns all metadata of charts in current chart
+func (c *Chart) VersionMetadata(ctx context.Context) ([]*storage.Metadata, error) {
+	list, err := c.List(ctx)
 	if err != nil {
 		return nil, err
 	}
-	mtList := make([]*chart.Metadata, 0, len(list))
+	mtList := make([]*storage.Metadata, 0, len(list))
 	for _, key := range list {
-		vm, err := cm.Create(ctx, key)
+		version, err := c.Version(ctx, key)
 		if err != nil {
 			return nil, err
 		}
-		mt, err := vm.Metadata(ctx)
+		mt, err := version.Metadata(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -255,11 +277,11 @@ func (cm *Chart) Versions(ctx context.Context) ([]*chart.Metadata, error) {
 }
 
 // Version returns a Version for managing specific version
-func (cm *Chart) Version(ctx context.Context, version string) (storage.Version, error) {
+func (c *Chart) Version(ctx context.Context, version string) (storage.Version, error) {
 	if !validateVersion(version) {
 		return nil, ErrorInvalidParam.Format("version", version)
 	}
-	return NewVersion(cm, version)
+	return NewVersion(c, version)
 }
 
 // Version defines methods for managing specific version of a chart
@@ -281,13 +303,18 @@ func NewVersion(chart *Chart, version string) (*Version, error) {
 	return &Version{chart, chart.Space.SpaceManager.Backend, path.Join(chart.Prefix, version), version}, nil
 }
 
-// Name returns name
-func (vm *Version) Name() string {
+// Kind returns kind name
+func (v *Version) Kind() string {
 	return managerName
 }
 
+// Number returns version number
+func (v *Version) Number() string {
+	return v.Version
+}
+
 // PutContent stores chart data
-func (vm *Version) PutContent(ctx context.Context, data []byte) error {
+func (v *Version) PutContent(ctx context.Context, data []byte) error {
 	if len(data) <= 0 {
 		return ErrorNoParameter.Format("data")
 	}
@@ -296,79 +323,63 @@ func (vm *Version) PutContent(ctx context.Context, data []byte) error {
 	defer func() {
 		if !success {
 			// GC when it's failed
-			err := vm.Chart.Delete(ctx, vm.Version)
+			err := v.Chart.Delete(ctx, v.Version)
 			if err != nil {
 				log.Error(err)
 			}
 		}
 	}()
-	statusKey := path.Join(vm.Prefix, statusName)
-	statusData, err := vm.Backend.GetContent(ctx, statusKey)
-	if err == nil && string(statusData) == statusLocking {
-		return ErrorLocking.Format("chart", vm.Chart.Name()+"/"+vm.Version)
+	statusKey := path.Join(v.Prefix, statusName)
+	statusData, err := v.Backend.GetContent(ctx, statusKey)
+	if string(statusData) == statusLocking {
+		return ErrorLocking.Format("chart", v.Chart.Name()+"/"+v.Version)
 	}
 	// Create a `statusName` file with `statusLocking` to lock the place
-	err = vm.Backend.PutContent(ctx, statusKey, []byte(statusLocking))
+	err = v.Backend.PutContent(ctx, statusKey, []byte(statusLocking))
 	if err != nil {
 		return ErrorInternalUnknown.Format(err)
 	}
-	// Extract Chat.yaml and values.yaml from data
-	unzipped, err := gzip.NewReader(bytes.NewReader(data))
+	// Validate chart
+	chart, err := chartutil.LoadArchive(bytes.NewReader(data))
 	if err != nil {
 		return ErrorParamTypeError.Format("chart", "gzip", "unknown")
 	}
-	defer unzipped.Close()
-	reader := tar.NewReader(unzipped)
-	var metadataBuffer, valuesBuffer *bytes.Buffer
-
-	metadataPath := path.Join(vm.Chart.Chart, "Chart.yaml")
-	valuesPath := path.Join(vm.Chart.Chart, "values.yaml")
-	for {
-		if hd, errn := reader.Next(); errn == nil {
-			switch hd.Name {
-			case metadataPath:
-				metadataBuffer = bytes.NewBuffer(nil)
-				if _, err = io.Copy(metadataBuffer, reader); err != nil {
-					return ErrorInternalUnknown.Format(err)
-				}
-			case valuesPath:
-				valuesBuffer = bytes.NewBuffer(nil)
-				if _, err = io.Copy(valuesBuffer, reader); err != nil {
-					return ErrorInternalUnknown.Format(err)
-				}
-			}
-		} else {
-			if errn == io.EOF {
-				break
-			}
-			return ErrorInternalUnknown.Format(errn)
-		}
-		if metadataBuffer != nil && valuesBuffer != nil {
-			break
-		}
+	// Coalesce metadata
+	metadata, err := storage.CoalesceMetadata(chart)
+	if err != nil {
+		return ErrorInvalidParam.Format("metadata", err.Error())
 	}
-	if metadataBuffer == nil {
-		return ErrorNoResource.Format("Chart.yaml", vm.Prefix)
-	}
-	if valuesBuffer == nil {
-		return ErrorNoResource.Format("values.yaml", vm.Prefix)
+	// Coalesce values
+	values, err := chartutil.CoalesceValues(chart, chart.Values)
+	if err != nil {
+		return ErrorInvalidParam.Format("values", err.Error())
 	}
 
 	// Store chart
-	err = vm.Backend.PutContent(ctx, path.Join(vm.Prefix, chartPackageName), data)
+	err = v.Backend.PutContent(ctx, path.Join(v.Prefix, chartPackageName), data)
 	if err != nil {
 		return ErrorInternalUnknown.Format(err)
 	}
-	err = vm.Backend.PutContent(ctx, path.Join(vm.Prefix, metadataName), metadataBuffer.Bytes())
+	// Store metadata
+	data, err = json.Marshal(metadata)
 	if err != nil {
 		return ErrorInternalUnknown.Format(err)
 	}
-	err = vm.Backend.PutContent(ctx, path.Join(vm.Prefix, valuesName), valuesBuffer.Bytes())
+	err = v.Backend.PutContent(ctx, path.Join(v.Prefix, metadataName), data)
+	if err != nil {
+		return ErrorInternalUnknown.Format(err)
+	}
+	// Store values
+	data, err = json.Marshal(values)
+	if err != nil {
+		return ErrorInternalUnknown.Format(err)
+	}
+	err = v.Backend.PutContent(ctx, path.Join(v.Prefix, valuesName), data)
 	if err != nil {
 		return ErrorInternalUnknown.Format(err)
 	}
 	// Write `statusSuccess` to `statusName` file
-	err = vm.Backend.PutContent(ctx, statusKey, []byte(statusSuccess))
+	err = v.Backend.PutContent(ctx, statusKey, []byte(statusSuccess))
 	if err != nil {
 		return ErrorInternalUnknown.Format(err)
 	}
@@ -378,23 +389,23 @@ func (vm *Version) PutContent(ctx context.Context, data []byte) error {
 }
 
 // GetContent gets chart data
-func (vm *Version) GetContent(ctx context.Context) ([]byte, error) {
-	if err := vm.Validate(ctx); err != nil {
+func (v *Version) GetContent(ctx context.Context) ([]byte, error) {
+	if err := v.Validate(ctx); err != nil {
 		return nil, err
 	}
-	path := path.Join(vm.Prefix, chartPackageName)
-	data, err := vm.Chart.Space.SpaceManager.Backend.GetContent(ctx, path)
+	path := path.Join(v.Prefix, chartPackageName)
+	data, err := v.Chart.Space.SpaceManager.Backend.GetContent(ctx, path)
 	if err != nil {
-		return nil, ErrorInternalUnknown.Format(err)
+		return nil, ErrorContentNotFound.Format(v.Prefix)
 	}
 	return data, nil
 }
 
 // Validate validates whether the chart is valid
-func (vm *Version) Validate(ctx context.Context) error {
-	data, err := vm.Backend.GetContent(ctx, path.Join(vm.Prefix, statusName))
+func (v *Version) Validate(ctx context.Context) error {
+	data, err := v.Backend.GetContent(ctx, path.Join(v.Prefix, statusName))
 	if err != nil {
-		return ErrorInternalUnknown.Format(err)
+		return ErrorContentNotFound.Format(v.Prefix)
 	}
 	status := string(data)
 	if status != statusSuccess {
@@ -403,32 +414,38 @@ func (vm *Version) Validate(ctx context.Context) error {
 	return nil
 }
 
-// Metadata returns a Metadata of the current chart
-func (vm *Version) Metadata(ctx context.Context) (*chart.Metadata, error) {
-	if err := vm.Validate(ctx); err != nil {
+// Exists returns whether the version exists
+func (v *Version) Exists(ctx context.Context) bool {
+	return keyExists(ctx, v.Backend, v.Prefix)
+}
+
+// Metadata returns a Metadata of current chart
+func (v *Version) Metadata(ctx context.Context) (*storage.Metadata, error) {
+	if err := v.Validate(ctx); err != nil {
 		return nil, err
 	}
-	path := path.Join(vm.Prefix, metadataName)
-	data, err := vm.Backend.GetContent(ctx, path)
+	path := path.Join(v.Prefix, metadataName)
+	data, err := v.Backend.GetContent(ctx, path)
 	if err != nil {
-		return nil, ErrorInternalUnknown.Format(err)
+		return nil, ErrorContentNotFound.Format(v.Prefix)
 	}
-	meta, err := chartutil.UnmarshalChartfile(data)
+	meta := &storage.Metadata{}
+	err = json.Unmarshal(data, meta)
 	if err != nil {
 		return nil, ErrorInternalUnknown.Format(err)
 	}
 	return meta, nil
 }
 
-// Values gets data from values.yaml file which in the current chart data
-func (vm *Version) Values(ctx context.Context) ([]byte, error) {
-	if err := vm.Validate(ctx); err != nil {
+// Values gets data from values.yaml file which in current chart data
+func (v *Version) Values(ctx context.Context) ([]byte, error) {
+	if err := v.Validate(ctx); err != nil {
 		return nil, err
 	}
-	path := path.Join(vm.Prefix, valuesName)
-	data, err := vm.Backend.GetContent(ctx, path)
+	path := path.Join(v.Prefix, valuesName)
+	data, err := v.Backend.GetContent(ctx, path)
 	if err != nil {
-		return nil, ErrorInternalUnknown.Format(err)
+		return nil, ErrorContentNotFound.Format(v.Prefix)
 	}
 	return data, nil
 }
@@ -447,7 +464,7 @@ func validateVersion(version string) bool {
 	return versionFilter.MatchString(version)
 }
 
-// lastElement returns the last element of key. Its behavior like path.Bash()
+// lastElement returns the last element of key. Its behavior like path.Base()
 func lastElement(key string) string {
 	key = strings.TrimRight(key, "/\\")
 	index := strings.LastIndexAny(key, "/\\")
@@ -461,7 +478,7 @@ func lastElement(key string) string {
 func list(ctx context.Context, backend driver.StorageDriver, prefix string, validator func(string) bool) ([]string, error) {
 	list, err := backend.List(ctx, prefix)
 	if err != nil {
-		return nil, ErrorInternalUnknown.Format(err)
+		return nil, ErrorContentNotFound.Format(prefix)
 	}
 	i := 0
 	for _, key := range list {
@@ -479,7 +496,7 @@ func list(ctx context.Context, backend driver.StorageDriver, prefix string, vali
 func deleteKeys(ctx context.Context, backend driver.StorageDriver, prefix string, forced bool) error {
 	list, err := backend.List(ctx, prefix)
 	if err != nil {
-		return ErrorInternalUnknown.Format(err)
+		return ErrorContentNotFound.Format(prefix)
 	}
 	if len(list) > 0 && !forced {
 		return ErrorNeedForcedDelete.Format(prefix)
@@ -489,4 +506,10 @@ func deleteKeys(ctx context.Context, backend driver.StorageDriver, prefix string
 		return ErrorInternalUnknown.Format(err)
 	}
 	return nil
+}
+
+// keyExists check whether the key exists
+func keyExists(ctx context.Context, backend driver.StorageDriver, key string) bool {
+	_, err := backend.Stat(ctx, key)
+	return err == nil
 }
