@@ -1,0 +1,6 @@
+# Ignore directory
+bin/
+
+
+# Ignore garbage
+.DS_Store
