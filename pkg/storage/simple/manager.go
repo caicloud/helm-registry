@@ -14,7 +14,9 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/caicloud/helm-registry/pkg/lock"
 	"github.com/caicloud/helm-registry/pkg/log"
 	"github.com/caicloud/helm-registry/pkg/storage"
 	"github.com/caicloud/helm-registry/pkg/storage/driver"
@@ -32,6 +34,9 @@ const (
 	statusLocking = "LOCKING"
 	statusSuccess = "SUCCESS"
 )
+
+// every resource has a named lock and the lock name specifies all spaces
+const allSpacesLockName = ""
 
 func init() {
 	storage.Register(managerName, &simpleSpaceManagerFactory{})
@@ -53,27 +58,43 @@ func (factory *simpleSpaceManagerFactory) Create(parameters map[string]interface
 	if parameters == nil {
 		return nil, ErrorNoParameter.Format("parameters")
 	}
-	storageDriverName, ok := parameters["storagedriver"]
+	// create resource locker
+	lockerName, ok := parameters["resourcelocker"]
 	if !ok {
-		return nil, ErrorNoStorageDriver
+		return nil, ErrorContentMissing.Format("resourcelocker")
 	}
-	backend := fmt.Sprint(storageDriverName)
-	storageDriver, err := driver.Create(backend, parameters)
+	var lockerParams map[string]interface{}
+	lockerParameters, ok := parameters["lockerparameters"]
+	if ok {
+		lockerParams, _ = lockerParameters.(map[string]interface{})
+	}
+	locker, err := lock.Create(fmt.Sprint(lockerName), lockerParams)
 	if err != nil {
 		return nil, ErrorInternalUnknown.Format(err)
 	}
-	return NewSpaceManager(storageDriver), nil
+	// create storage driver
+	storageDriverName, ok := parameters["storagedriver"]
+	if !ok {
+		return nil, ErrorContentMissing.Format("storagedriver")
+	}
+	storageDriver, err := driver.Create(fmt.Sprint(storageDriverName), parameters)
+	if err != nil {
+		return nil, ErrorInternalUnknown.Format(err)
+	}
+	return NewSpaceManager(storageDriver, locker, lock.TimeoutImmediate), nil
 }
 
 // SpaceManager implements storage.SpaceManager interface, and stores charts in file system
 type SpaceManager struct {
-	Prefix  string
-	Backend driver.StorageDriver
+	Prefix      string
+	Lock        lock.ResourceLocker
+	LockTimeout time.Duration
+	Backend     driver.StorageDriver
 }
 
 // NewSpaceManager creates a new SpaceManager
-func NewSpaceManager(backend driver.StorageDriver) *SpaceManager {
-	return &SpaceManager{"/", backend}
+func NewSpaceManager(backend driver.StorageDriver, lock lock.ResourceLocker, timeout time.Duration) *SpaceManager {
+	return &SpaceManager{"/", lock, timeout, backend}
 }
 
 // Kind returns kind name
@@ -83,6 +104,11 @@ func (sm *SpaceManager) Kind() string {
 
 // Create creates a new Space with space name
 func (sm *SpaceManager) Create(ctx context.Context, space string) (storage.Space, error) {
+	lock := sm.Lock.Get(space)
+	if !lock.Lock(sm.LockTimeout) {
+		return nil, ErrorLocking.Format("space", space)
+	}
+	defer lock.Unlock()
 	newSpace, err := sm.Space(ctx, space)
 	if err != nil {
 		return nil, err
@@ -101,11 +127,21 @@ func (sm *SpaceManager) Create(ctx context.Context, space string) (storage.Space
 
 // Delete deletes specific space.
 func (sm *SpaceManager) Delete(ctx context.Context, space string) error {
+	lock := sm.Lock.Get(space)
+	if !lock.Lock(sm.LockTimeout) {
+		return ErrorLocking.Format("space", space)
+	}
+	defer lock.Unlock()
 	return deleteKeys(ctx, sm.Backend, path.Join(sm.Prefix, space), true)
 }
 
 // List returns all space names
 func (sm *SpaceManager) List(ctx context.Context) ([]string, error) {
+	lock := sm.Lock.Get(allSpacesLockName)
+	if !lock.RLock(sm.LockTimeout) {
+		return nil, ErrorLocking.Format("space manager", allSpacesLockName)
+	}
+	defer lock.RUnlock()
 	return list(ctx, sm.Backend, sm.Prefix, validateName, sortNames)
 }
 
@@ -162,11 +198,21 @@ func (s *Space) Name() string {
 
 // Delete deletes specific chart
 func (s *Space) Delete(ctx context.Context, chart string) error {
+	lock := s.SpaceManager.Lock.Get(s.Name(), chart)
+	if !lock.Lock(s.SpaceManager.LockTimeout) {
+		return ErrorLocking.Format("chart", s.Name()+"/"+chart)
+	}
+	defer lock.Unlock()
 	return deleteKeys(ctx, s.SpaceManager.Backend, path.Join(s.Prefix, chart), true)
 }
 
 // List returns all chart names
 func (s *Space) List(ctx context.Context) ([]string, error) {
+	lock := s.SpaceManager.Lock.Get(s.Name())
+	if !lock.RLock(s.SpaceManager.LockTimeout) {
+		return nil, ErrorLocking.Format("space", s.Name())
+	}
+	defer lock.RUnlock()
 	return list(ctx, s.SpaceManager.Backend, s.Prefix, validateName, sortNames)
 }
 
@@ -234,11 +280,15 @@ func (c *Chart) Name() string {
 
 // Delete deletes specific chart
 func (c *Chart) Delete(ctx context.Context, version string) error {
+	lock := c.Space.SpaceManager.Lock.Get(c.Space.Name(), c.Name(), version)
+	if !lock.Lock(c.Space.SpaceManager.LockTimeout) {
+		return ErrorLocking.Format("version", c.Space.Name()+"/"+c.Name()+"/"+version)
+	}
 	err := deleteKeys(ctx, c.Space.SpaceManager.Backend, path.Join(c.Prefix, version), true)
 	if err != nil {
 		return err
 	}
-
+	lock.Unlock()
 	versions, err := c.List(ctx)
 	if err == nil && len(versions) <= 0 {
 		// delete chart if has no version
@@ -249,6 +299,11 @@ func (c *Chart) Delete(ctx context.Context, version string) error {
 
 // List returns all version numbers
 func (c *Chart) List(ctx context.Context) ([]string, error) {
+	lock := c.Space.SpaceManager.Lock.Get(c.Space.Name(), c.Name())
+	if !lock.RLock(c.Space.SpaceManager.LockTimeout) {
+		return nil, ErrorLocking.Format("chart", c.Space.Name()+"/"+c.Name())
+	}
+	defer lock.RUnlock()
 	return list(ctx, c.Space.SpaceManager.Backend, c.Prefix, validateVersion, sortVersions)
 }
 
@@ -317,6 +372,11 @@ func (v *Version) Number() string {
 
 // PutContent stores chart data
 func (v *Version) PutContent(ctx context.Context, data []byte) error {
+	lock := v.Chart.Space.SpaceManager.Lock.Get(v.Chart.Space.Name(), v.Chart.Name(), v.Number())
+	if !lock.Lock(v.Chart.Space.SpaceManager.LockTimeout) {
+		return ErrorLocking.Format("version", v.Chart.Space.Name()+"/"+v.Chart.Name()+"/"+v.Number())
+	}
+	defer lock.Unlock()
 	if len(data) <= 0 {
 		return ErrorNoParameter.Format("data")
 	}
@@ -392,6 +452,11 @@ func (v *Version) PutContent(ctx context.Context, data []byte) error {
 
 // GetContent gets chart data
 func (v *Version) GetContent(ctx context.Context) ([]byte, error) {
+	lock := v.Chart.Space.SpaceManager.Lock.Get(v.Chart.Space.Name(), v.Chart.Name(), v.Number())
+	if !lock.RLock(v.Chart.Space.SpaceManager.LockTimeout) {
+		return nil, ErrorLocking.Format("version", v.Chart.Space.Name()+"/"+v.Chart.Name()+"/"+v.Number())
+	}
+	defer lock.RUnlock()
 	if err := v.Validate(ctx); err != nil {
 		return nil, err
 	}
@@ -405,13 +470,18 @@ func (v *Version) GetContent(ctx context.Context) ([]byte, error) {
 
 // Validate validates whether the chart is valid
 func (v *Version) Validate(ctx context.Context) error {
+	lock := v.Chart.Space.SpaceManager.Lock.Get(v.Chart.Space.Name(), v.Chart.Name(), v.Number())
+	if !lock.RLock(v.Chart.Space.SpaceManager.LockTimeout) {
+		return ErrorLocking.Format("version", v.Chart.Space.Name()+"/"+v.Chart.Name()+"/"+v.Number())
+	}
+	defer lock.RUnlock()
 	data, err := v.Backend.GetContent(ctx, path.Join(v.Prefix, statusName))
 	if err != nil {
 		return ErrorContentNotFound.Format(v.Prefix)
 	}
 	status := string(data)
 	if status != statusSuccess {
-		return ErrorInvalidStatus.Format("chart", status)
+		return ErrorInvalidStatus.Format("version", status)
 	}
 	return nil
 }
@@ -423,6 +493,11 @@ func (v *Version) Exists(ctx context.Context) bool {
 
 // Metadata returns a Metadata of current chart
 func (v *Version) Metadata(ctx context.Context) (*storage.Metadata, error) {
+	lock := v.Chart.Space.SpaceManager.Lock.Get(v.Chart.Space.Name(), v.Chart.Name(), v.Number())
+	if !lock.RLock(v.Chart.Space.SpaceManager.LockTimeout) {
+		return nil, ErrorLocking.Format("version", v.Chart.Space.Name()+"/"+v.Chart.Name()+"/"+v.Number())
+	}
+	defer lock.RUnlock()
 	if err := v.Validate(ctx); err != nil {
 		return nil, err
 	}
@@ -441,6 +516,11 @@ func (v *Version) Metadata(ctx context.Context) (*storage.Metadata, error) {
 
 // Values gets data from values.yaml file which in current chart data
 func (v *Version) Values(ctx context.Context) ([]byte, error) {
+	lock := v.Chart.Space.SpaceManager.Lock.Get(v.Chart.Space.Name(), v.Chart.Name(), v.Number())
+	if !lock.RLock(v.Chart.Space.SpaceManager.LockTimeout) {
+		return nil, ErrorLocking.Format("version", v.Chart.Space.Name()+"/"+v.Chart.Name()+"/"+v.Number())
+	}
+	defer lock.RUnlock()
 	if err := v.Validate(ctx); err != nil {
 		return nil, err
 	}

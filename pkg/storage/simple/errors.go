@@ -11,8 +11,8 @@ import (
 )
 
 var (
-	// ErrorNoStorageDriver defines storage driver does not specify
-	ErrorNoStorageDriver = errors.NewStaticError(http.StatusInternalServerError, errors.ReasonInternal, "storage driver does not specify")
+	// ErrorContentMissing defines content must be specified
+	ErrorContentMissing = errors.NewFormatError(http.StatusInternalServerError, errors.ReasonInternal, "%s does not specify")
 	// ErrorNoParameter defines parameter can't be nil or empty
 	ErrorNoParameter = errors.NewFormatError(http.StatusInternalServerError, errors.ReasonInternal, "%s can't be nil or empty")
 	// ErrorNoResource defines can't find resource from package
