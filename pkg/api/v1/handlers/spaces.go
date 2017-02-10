@@ -14,7 +14,7 @@ import (
 
 // ListSpaces lists spaces
 func ListSpaces(ctx context.Context) (int, []string, error) {
-	return listStrings(ctx, "spaces", func() ([]string, error) {
+	return listStrings(ctx, func() ([]string, error) {
 		return common.MustGetSpaceManager().List(ctx)
 	})
 }

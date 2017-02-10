@@ -131,27 +131,29 @@ func getPaging(ctx context.Context) (int, int, error) {
 	}
 	const startName = "start"
 	start := request.QueryParameter(startName)
-	if len(start) <= 0 {
-		start = "0"
+	s := 0
+	if len(start) > 0 {
+		s, err = strconv.Atoi(start)
+		if err != nil {
+			return 0, 0, errors.ErrorParamTypeError.Format(startName, "number", "string")
+		}
 	}
 	const limitName = "limit"
 	limit := request.QueryParameter(limitName)
-	if len(limit) <= 0 {
-		limit = "10"
+	l := common.DefaultPagingLimit
+	if len(limit) > 0 {
+		l, err = strconv.Atoi(limit)
+		if err != nil {
+			return 0, 0, errors.ErrorParamTypeError.Format(limitName, "number", "string")
+		}
 	}
-	s, err := strconv.Atoi(start)
-	if err != nil {
-		return 0, 0, errors.ErrorParamTypeError.Format(startName, "number", "string")
-	}
-	l, err := strconv.Atoi(limit)
-	if err != nil {
-		return 0, 0, errors.ErrorParamTypeError.Format(limitName, "number", "string")
-	}
+
 	return s, l, nil
 }
 
-// listStrings used by ListSpaces, ListCharts
-func listStrings(ctx context.Context, name string, f func() ([]string, error)) (int, []string, error) {
+// listStrings is a helper and get an array of strings from f(). Then select a specified range
+// of the array by paging info. It returns original array length and selected array.
+func listStrings(ctx context.Context, f func() ([]string, error)) (int, []string, error) {
 	start, limit, err := getPaging(ctx)
 	if err != nil {
 		return 0, nil, err
@@ -161,14 +163,21 @@ func listStrings(ctx context.Context, name string, f func() ([]string, error)) (
 		return 0, nil, err
 	}
 	total := len(strings)
-	if start >= total {
-		return total, []string{}, nil
+	start, end := standardizeRange(total, start, limit)
+	return total, strings[start:end], nil
+}
+
+// standardizeRange makes start and limit conform to [0:total]
+// and returns a range with start and end of an array
+func standardizeRange(total, start, limit int) (int, int) {
+	if start < 0 || limit < 0 || start >= total {
+		return 0, 0
 	}
 	end := start + limit
 	if end > total {
 		end = total
 	}
-	return total, strings[start:end], nil
+	return start, end
 }
 
 // readDataFromBody reads data from the body of request

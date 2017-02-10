@@ -10,6 +10,7 @@ import (
 	"github.com/caicloud/helm-registry/pkg/api/definition"
 	"github.com/caicloud/helm-registry/pkg/api/models"
 	"github.com/caicloud/helm-registry/pkg/api/v1/handlers"
+	"github.com/caicloud/helm-registry/pkg/common"
 )
 
 func init() {
@@ -38,11 +39,11 @@ var spaces = []definition.Descriptor{
 						Type:     "number",
 						Doc:      "Specify the number of records to return",
 						Required: false,
-						Default:  10,
+						Default:  common.DefaultPagingLimit,
 					},
 				},
 				StatusCode: []definition.StatusCode{
-					definition.StatusCode{Code: 200, Message: "Success and respond with a array of space names",
+					definition.StatusCode{Code: http.StatusOK, Message: "Success and respond with a array of space names",
 						Sample: &models.ListResponse{
 							Metadata: models.Metadata{
 								Total:       10,
@@ -67,7 +68,7 @@ var spaces = []definition.Descriptor{
 					},
 				},
 				StatusCode: []definition.StatusCode{
-					definition.StatusCode{Code: 201, Message: "Create successfully",
+					definition.StatusCode{Code: http.StatusCreated, Message: "Create successfully",
 						Sample: &models.Link{
 							Name: "spaceName",
 							Link: "/spaces/spaceName",
@@ -92,7 +93,7 @@ var spaces = []definition.Descriptor{
 					},
 				},
 				StatusCode: []definition.StatusCode{
-					definition.StatusCode{Code: 204, Message: "Delete successfully"},
+					definition.StatusCode{Code: http.StatusNoContent, Message: "Delete successfully"},
 				},
 			},
 		},

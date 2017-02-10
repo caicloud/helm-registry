@@ -24,3 +24,8 @@ const (
 	// HTTPRequestUploadFileName is the name of file in HTTP Request
 	HTTPRequestUploadFileName = "chartfile"
 )
+
+const (
+	// DefaultPagingLimit is the default limit of paging.
+	DefaultPagingLimit = 10
+)
