@@ -74,7 +74,7 @@ An config sample:
     "save":{                            // key, required
         "chart":"chart name",           // string, required
         "version":"1.0.0",              // string, required    
-		"desc":"description"            // string, optional
+		"description":"description"            // string, optional
     },
     "configs":{                         // key, required
         "package":{                     // key, required

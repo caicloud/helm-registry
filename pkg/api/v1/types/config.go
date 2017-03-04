@@ -19,7 +19,7 @@ type Save struct {
 	// Version number
 	Version string `json:"version"`
 	// Desc is the description of the chart
-	Desc string `json:"desc"`
+	Desc string `json:"description"`
 }
 
 // Validate validates whether the info is valid

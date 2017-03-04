@@ -177,7 +177,7 @@ memory:
         "space":"library",                  
         "chart":"testX",           
         "version":"1.0.1",             
-        "desc":"a test for creating chart"           
+        "description":"a test for creating chart"           
     },
     "configs":{                        
         "package":{                    
