@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"path"
 	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/caicloud/helm-registry/pkg/log"
@@ -104,7 +106,7 @@ func (sm *SpaceManager) Delete(ctx context.Context, space string) error {
 
 // List returns all space names
 func (sm *SpaceManager) List(ctx context.Context) ([]string, error) {
-	return list(ctx, sm.Backend, sm.Prefix, validateName)
+	return list(ctx, sm.Backend, sm.Prefix, validateName, sortNames)
 }
 
 // Space returns a Space that it can manage specific space
@@ -165,7 +167,7 @@ func (s *Space) Delete(ctx context.Context, chart string) error {
 
 // List returns all chart names
 func (s *Space) List(ctx context.Context) ([]string, error) {
-	return list(ctx, s.SpaceManager.Backend, s.Prefix, validateName)
+	return list(ctx, s.SpaceManager.Backend, s.Prefix, validateName, sortNames)
 }
 
 // Exists returns whether the space exists
@@ -247,7 +249,7 @@ func (c *Chart) Delete(ctx context.Context, version string) error {
 
 // List returns all version numbers
 func (c *Chart) List(ctx context.Context) ([]string, error) {
-	return list(ctx, c.Space.SpaceManager.Backend, c.Prefix, validateVersion)
+	return list(ctx, c.Space.SpaceManager.Backend, c.Prefix, validateVersion, sortVersions)
 }
 
 // Exists returns whether the chart exists
@@ -475,7 +477,8 @@ func lastElement(key string) string {
 }
 
 // list lists keys which only have one more element than prefix and return keys without prefix
-func list(ctx context.Context, backend driver.StorageDriver, prefix string, validator func(string) bool) ([]string, error) {
+func list(ctx context.Context, backend driver.StorageDriver, prefix string,
+	validator func(string) bool, sorter func([]string) []string) ([]string, error) {
 	list, err := backend.List(ctx, prefix)
 	if err != nil {
 		return nil, ErrorContentNotFound.Format(prefix)
@@ -489,7 +492,13 @@ func list(ctx context.Context, backend driver.StorageDriver, prefix string, vali
 			i++
 		}
 	}
-	return list[:i], nil
+	// valid keys
+	list = list[:i]
+	// sort keys
+	if len(list) > 1 && sorter != nil {
+		list = sorter(list)
+	}
+	return list, nil
 }
 
 // deleteKeys delete all keys by prefix if forced is true
@@ -512,4 +521,59 @@ func deleteKeys(ctx context.Context, backend driver.StorageDriver, prefix string
 func keyExists(ctx context.Context, backend driver.StorageDriver, key string) bool {
 	_, err := backend.Stat(ctx, key)
 	return err == nil
+}
+
+// StringSlice attaches the methods of Interface to []string, sorting in increasing order.
+type StringSlice []string
+
+func (p StringSlice) Len() int           { return len(p) }
+func (p StringSlice) Less(i, j int) bool { return p[i] < p[j] }
+func (p StringSlice) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
+
+// parseVersionNumber parses version string to int
+func parseVersionNumber(version string) []int {
+	elements := strings.Split(version, ".")
+	numbers := make([]int, 0, len(elements))
+	for _, ele := range elements {
+		num, err := strconv.Atoi(ele)
+		if err != nil {
+			// If came here, There is a bug in current manager.
+			log.Panicln(err)
+		}
+		numbers = append(numbers, num)
+	}
+	return numbers
+}
+
+// VersionSlice attaches the methods of Interface to []string, sorting in increasing order.
+type VersionSlice []string
+
+func (p VersionSlice) Len() int { return len(p) }
+func (p VersionSlice) Less(i, j int) bool {
+	vni := parseVersionNumber(p[i])
+	vnj := parseVersionNumber(p[j])
+	for pos := 0; pos < len(vni) && pos < len(vnj); pos++ {
+		switch {
+		case vni[pos] < vnj[pos]:
+			// less
+			return true
+		case vni[pos] > vnj[pos]:
+			return false
+		}
+	}
+	// equal
+	return false
+}
+func (p VersionSlice) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
+
+// sortNames sorts names by alphabetical order
+func sortNames(slice []string) []string {
+	sort.Sort(StringSlice(slice))
+	return slice
+}
+
+// sortVersions sorts versions by version order
+func sortVersions(slice []string) []string {
+	sort.Sort(VersionSlice(slice))
+	return slice
 }
