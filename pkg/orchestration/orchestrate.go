@@ -78,9 +78,9 @@ func Create(configs map[string]interface{}) (*chart.Chart, error) {
 }
 
 // ClearValues removes all values in a chart
-func ClearValues(chart *chart.Chart) {
-	chart.Values.Reset()
-	for _, child := range chart.Dependencies {
+func ClearValues(chrt *chart.Chart) {
+	chrt.Values = &chart.Config{}
+	for _, child := range chrt.Dependencies {
 		ClearValues(child)
 	}
 }

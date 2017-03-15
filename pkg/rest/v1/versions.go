@@ -64,7 +64,10 @@ func NewAPIDownloadVersion() *APIDownloadVersion {
 
 // Convert converts result to []byte
 func (api *APIDownloadVersion) Convert(result interface{}, err error) ([]byte, error) {
-	return result.([]byte), err
+	if err != nil {
+		return nil, err
+	}
+	return result.([]byte), nil
 }
 
 // APIUploadVersion defines an api of uploading version
