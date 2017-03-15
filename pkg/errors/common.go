@@ -34,7 +34,7 @@ var (
 	// ErrorResourceExist defines resource conflict error
 	ErrorResourceExist = NewFormatError(http.StatusConflict, ReasonInternal, "resource conflict because %s exist")
 	// ErrorLocking defines locking error
-	ErrorLocking = NewFormatError(http.StatusConflict, ReasonLocking, "%s is locking and can't be handled: %v")
+	ErrorLocking = NewFormatError(http.StatusLocked, ReasonLocking, "%s is locked and can't be handled: %v")
 	// ErrorInvalidStatus defines invalid status error
 	ErrorInvalidStatus = NewFormatError(http.StatusConflict, ReasonInternal, "%s status is invalid: %v")
 
