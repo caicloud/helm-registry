@@ -31,6 +31,7 @@ listen: ":9999"
 manager: 
   name: "simple"
   parameters: 
+    resourcelocker: memory
     storagedriver: filesystem
     rootdirectory: "${DATA_PATH}"
 EOF
