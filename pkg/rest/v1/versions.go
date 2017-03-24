@@ -70,8 +70,8 @@ func (api *APIDownloadVersion) Convert(result interface{}, err error) ([]byte, e
 	return result.([]byte), nil
 }
 
-// APIUploadVersion defines an api of uploading version
-type APIUploadVersion struct {
+// APIUpdateVersion defines an api of updating version
+type APIUpdateVersion struct {
 	baseAPI
 	// Space is the name of space
 	Space string `kind:"path" name:"space"`
@@ -83,29 +83,7 @@ type APIUploadVersion struct {
 	ChartFile *File `kind:"file" name:"chartfile"`
 }
 
-// NewAPIUploadVersion creates an instance of APIUploadVersion
-func NewAPIUploadVersion() *APIUploadVersion {
-	api := &APIUploadVersion{}
-	api.object = api
-	api.method = http.MethodPost
-	api.url = URLVersion
-	api.result = &models.ChartLink{}
-	api.ChartFile = &File{}
-	return api
-}
-
-// Convert converts result to *models.ChartLink
-func (api *APIUploadVersion) Convert(result interface{}, err error) (*models.ChartLink, error) {
-	if err != nil {
-		return nil, err
-	}
-	return result.(*models.ChartLink), nil
-}
-
-// APIUpdateVersion defines an api of updating version
-type APIUpdateVersion APIUploadVersion
-
-// NewAPIUploadVersion creates an instance of APIUploadVersion
+// NewAPIUpdateVersion creates an instance of APIUpdateVersion
 func NewAPIUpdateVersion() *APIUpdateVersion {
 	api := &APIUpdateVersion{}
 	api.object = api
