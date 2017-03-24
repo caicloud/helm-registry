@@ -103,48 +103,6 @@ var versions = []definition.Descriptor{
 				},
 			},
 			{
-				HTTPMethod: http.MethodPost,
-				Handler:    definition.NewHandlerDecoration(definition.VerbCreate, handlers.UploadVersion).Handle,
-				Doc:        "Upload a version of a chart",
-				PathParams: []definition.Param{
-					{
-						Name:     "space",
-						Type:     "string",
-						Doc:      "space name",
-						Required: true,
-					},
-					{
-						Name:     "chart",
-						Type:     "string",
-						Doc:      "chart name",
-						Required: true,
-					},
-					{
-						Name:     "version",
-						Type:     "string",
-						Doc:      "version number",
-						Required: true,
-					},
-				},
-				QueryParams: []definition.Param{
-					{
-						Name:     "chartfile",
-						Type:     "multipart/form-data",
-						Doc:      "An archive file of chart",
-						Required: true,
-					},
-				},
-				StatusCode: []definition.StatusCode{
-					definition.StatusCode{Code: http.StatusCreated, Message: "Upload successfully",
-						Sample: &models.ChartLink{
-							Space:   "spaceName",
-							Chart:   "chartName",
-							Version: "1.0.0",
-							Link:    "/spaces/spaceName/charts/chartName/versions/1.0.0",
-						}},
-				},
-			},
-			{
 				HTTPMethod: http.MethodPut,
 				Handler:    definition.NewHandlerDecoration(definition.VerbUpdate, handlers.UpdateVersion).Handle,
 				Doc:        "Update a version of a chart",

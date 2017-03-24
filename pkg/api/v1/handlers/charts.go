@@ -7,6 +7,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/caicloud/helm-registry/pkg/api/models"
 	"github.com/caicloud/helm-registry/pkg/common"
@@ -96,6 +97,49 @@ func CreateChart(ctx context.Context) (*models.ChartLink, error) {
 	}
 	return models.NewChartLink(config.Save.Space, config.Save.Chart, config.Save.Version,
 		fmt.Sprintf("%s/%s/versions/%s", path, config.Save.Chart, config.Save.Version)), nil
+}
+
+// UploadChart handles a request for storing a version of chart. Resource should not exist
+func UploadChart(ctx context.Context) (*models.ChartLink, error) {
+	spaceName, err := getSpaceName(ctx)
+	if err != nil {
+		return nil, err
+	}
+	data, err := getChartFileData(ctx)
+	if err != nil {
+		return nil, err
+	}
+	metadata, err := getMetadataFromArchiveData(data)
+	if err != nil {
+		return nil, err
+	}
+	space, chart, version, err := common.GetSpaceChartAndVersion(ctx, spaceName, metadata.Name, metadata.Version)
+	if err != nil {
+		return nil, err
+	}
+	if version.Exists(ctx) {
+		return nil, errors.ErrorResourceExist.Format(fmt.Sprintf("%s/%s/%s", space.Name(), chart.Name(), version.Number()))
+	}
+	err = version.PutContent(ctx, data)
+	if err != nil {
+		return nil, err
+	}
+	// construct a chart self-link
+	path, err := getRequestPath(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return models.NewChartLink(spaceName, metadata.Name, metadata.Version,
+		fmt.Sprintf("%s/%s/versions/%s", path, metadata.Name, metadata.Version)), nil
+}
+
+// CreateOrUploadChart selects a handler to handle the request by request content type
+func CreateOrUploadChart(ctx context.Context) (*models.ChartLink, error) {
+	contentType, _ := getHeaderParameter(ctx, "Content-Type")
+	if strings.Contains(contentType, "multipart/form-data") {
+		return UploadChart(ctx)
+	}
+	return CreateChart(ctx)
 }
 
 // valuesConfigName is the key of values

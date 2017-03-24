@@ -42,16 +42,6 @@ func DownloadVersion(ctx context.Context) (data []byte, err error) {
 	return
 }
 
-// UploadVersion handles a request for storing a version of chart. Resource should not exist
-func UploadVersion(ctx context.Context) (*models.ChartLink, error) {
-	return putVersion(ctx, func(space storage.Space, chart storage.Chart, version storage.Version) error {
-		if version.Exists(ctx) {
-			return errors.ErrorResourceExist.Format(fmt.Sprintf("%s/%s/%s", space.Name(), chart.Name(), version.Number()))
-		}
-		return nil
-	})
-}
-
 // UpdateVersion handles a request for updating a version of chart. Resource must exist
 func UpdateVersion(ctx context.Context) (*models.ChartLink, error) {
 	return putVersion(ctx, func(space storage.Space, chart storage.Chart, version storage.Version) error {
