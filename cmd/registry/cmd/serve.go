@@ -13,6 +13,8 @@ import (
 	"github.com/emicklei/go-restful"
 	"github.com/spf13/cobra"
 	"gopkg.in/tylerb/graceful.v1"
+
+	restfulspec "github.com/emicklei/go-restful-openapi"
 )
 
 // config path
@@ -37,6 +39,16 @@ var serveCmd = &cobra.Command{
 
 		// start server
 		api.Initialize()
+
+		// install openapi path
+		restful.DefaultContainer.Add(restfulspec.NewOpenAPIService(
+			restfulspec.Config{
+				WebServices:    restful.RegisteredWebServices(),
+				WebServicesURL: config.Listen,
+				APIPath:        "/apidocs.json",
+			},
+		))
+
 		log.Infof("Listening address %s", config.Listen)
 		graceful.Run(config.Listen, 5*time.Minute, restful.DefaultContainer)
 		log.Error("Server stopped")
