@@ -66,6 +66,34 @@ func (api *APICreateChart) Convert(result interface{}, err error) (*models.Chart
 	return result.(*models.ChartLink), nil
 }
 
+// APIUploadChart defines an api of uploading version
+type APIUploadChart struct {
+	baseAPI
+	// Space is the name of space
+	Space string `kind:"path" name:"space"`
+	// ChartFile is a chart file
+	ChartFile *File `kind:"file" name:"chartfile"`
+}
+
+// NewAPIUploadChart creates an instance of APIUploadChart
+func NewAPIUploadChart() *APIUploadChart {
+	api := &APIUploadChart{}
+	api.object = api
+	api.method = http.MethodPost
+	api.url = URLCharts
+	api.result = &models.ChartLink{}
+	api.ChartFile = &File{}
+	return api
+}
+
+// Convert converts result to *models.ChartLink
+func (api *APIUploadChart) Convert(result interface{}, err error) (*models.ChartLink, error) {
+	if err != nil {
+		return nil, err
+	}
+	return result.(*models.ChartLink), nil
+}
+
 // APIDeleteChart defines an api of deleting chart
 type APIDeleteChart struct {
 	baseAPI

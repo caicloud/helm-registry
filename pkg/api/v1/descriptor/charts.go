@@ -65,11 +65,12 @@ var charts = []definition.Descriptor{
 			},
 			{
 				HTTPMethod: http.MethodPost,
-				Handler:    definition.NewHandlerDecoration(definition.VerbCreate, handlers.CreateChart).Handle,
-				Doc:        "Create a chart by config",
+				Handler:    definition.NewHandlerDecoration(definition.VerbCreate, handlers.CreateOrUploadChart).Handle,
+				Doc:        "Create a chart by config or Upload a chart",
 				Note: `
-The hanlder regards whole request body as an orchestration config. The config should be an json string.
-An config sample:
+If ContentType is 'multipart/form-data', the request is handled as uploading a chart. Otherwise it is
+handled by creating chart and request body should be an orchestration config. The config is an json string
+and a sample as below:
 {
     "save":{                            // key, required
         "chart":"chart name",           // string, required
@@ -122,6 +123,14 @@ An config sample:
     }
 }
 `,
+				QueryParams: []definition.Param{
+					{
+						Name:     "chartfile",
+						Type:     "multipart/form-data",
+						Doc:      "An archive file of chart. Only valid when upload a chart",
+						Required: true,
+					},
+				},
 				StatusCode: []definition.StatusCode{
 					definition.StatusCode{Code: http.StatusCreated, Message: "Create successfully",
 						Sample: &models.ChartLink{

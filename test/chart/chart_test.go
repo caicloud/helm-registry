@@ -62,7 +62,7 @@ var _ = Describe("Chart", func() {
 		It("should upload chart", utils.Multicase(validChartPath, func(path ChartPath) {
 			data, err := ioutil.ReadFile(path.Path)
 			Expect(err).To(BeNil())
-			link, err := client.UploadVersion(path.Space, path.Chart, path.Version, data)
+			link, err := client.UploadChart(path.Space, data)
 			Expect(err).To(BeNil())
 			Expect([]string{link.Space, link.Chart, link.Version}).
 				To(Equal([]string{path.Space, path.Chart, path.Version}))
@@ -71,7 +71,7 @@ var _ = Describe("Chart", func() {
 		It("shouldn't upload chart", utils.Multicase(invalidChartPath, func(path ChartPath) {
 			data, err := ioutil.ReadFile(path.Path)
 			Expect(err).To(BeNil())
-			_, err = client.UploadVersion(path.Space, path.Chart, path.Version, data)
+			_, err = client.UploadChart(path.Space, data)
 			Expect(err).NotTo(BeNil())
 		}))
 	})
@@ -265,7 +265,7 @@ memory:
 			// upload
 			data, err := ioutil.ReadFile(path.Path)
 			Expect(err).To(BeNil())
-			link, err := client.UploadVersion(path.Space, path.Chart, path.Version, data)
+			link, err := client.UploadChart(path.Space, data)
 			Expect(err).To(BeNil())
 			Expect([]string{link.Space, link.Chart, link.Version}).
 				To(Equal([]string{path.Space, path.Chart, path.Version}))

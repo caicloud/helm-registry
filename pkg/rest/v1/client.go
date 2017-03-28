@@ -63,6 +63,14 @@ func (c *Client) CreateChart(spaceName string, config string) (*models.ChartLink
 	return api.Convert(c.Do(api))
 }
 
+// UploadChart uploads a chart file. If the chart exists, it produces an error.
+func (c *Client) UploadChart(spaceName string, data []byte) (*models.ChartLink, error) {
+	api := NewAPIUploadChart()
+	api.Space = spaceName
+	api.ChartFile.Data = data
+	return api.Convert(c.Do(api))
+}
+
 // DeleteChart deletes a chart and its all versions
 func (c *Client) DeleteChart(spaceName string, chartName string) error {
 	api := NewAPIDeleteChart()
@@ -87,16 +95,6 @@ func (c *Client) DownloadVersion(spaceName string, chartName string, versionNumb
 	api.Space = spaceName
 	api.Chart = chartName
 	api.Version = versionNumber
-	return api.Convert(c.Do(api))
-}
-
-// UploadVersion uploads a chart file. If the chart exists, it produces an error.
-func (c *Client) UploadVersion(spaceName string, chartName string, versionNumber string, data []byte) (*models.ChartLink, error) {
-	api := NewAPIUploadVersion()
-	api.Space = spaceName
-	api.Chart = chartName
-	api.Version = versionNumber
-	api.ChartFile.Data = data
 	return api.Convert(c.Do(api))
 }
 
