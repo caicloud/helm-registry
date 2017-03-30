@@ -147,7 +147,7 @@ var versions = []definition.Descriptor{
 			{
 				HTTPMethod: http.MethodDelete,
 				Handler:    definition.NewHandlerDecoration(definition.VerbDelete, handlers.DeleteVersion).Handle,
-				Doc:        "Delete a chart and its all versions",
+				Doc:        "Delete a chart and all of its versions",
 				PathParams: []definition.Param{
 					{
 						Name:     "space",

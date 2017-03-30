@@ -38,29 +38,27 @@ func convertInterface(name string, inf interface{}) (map[string]interface{}, err
 // Create creates a new chart from configs.
 // An example:
 // {
-//     "package":{ 						// It's the fixed description of current chart
-//         "independent":true, 			// It means that the chart is a independent chart in registry
-//         "space":"space name", 		// Chart space
-//         "chart":"chart name", 		// Original chart name
-//         "version":"version number" 	// Original chart version
-//         								// We will find the root chart by space/chart/version
+//     "package": {                     // It's the fixed description of current chart
+//         "independent":true,          // It means that the chart is an independent chart in registry
+//         "space":"space name",        // Chart space
+//         "chart":"chart name",        // Original chart name
+//         "version":"version number"   // Original chart version
+//                                      // We will be able to find the root chart by space/chart/version
 //     },
-//     "chartB": { 	// The original chart is library/chartA/1.0.2 . But Be renamed to chartB.
-//                 	// You can rename it or not. It's depend on you.
-//         "package":{
+//     "chartB": {                      // The original chart is library/chartA/1.0.2, but is renamed to chartB.
+//                                      // You can rename it or not. It's depend on you.
+//         "package":{                  // We will find the chart by library/chartA/1.0.2
 //             "independent":true,
 //             "space":"library",
-//             "chart":"chartA",	// The original name of chartB is chartA
+//             "chart":"chartA",        // The original name of chartB is chartA
 //             "version":"1.0.2"
-//             						// We will find the chart by library/chartA/1.0.2
 //         },
-//         "chartD":{ 				// This chart is the subchart of chartA and original name is chartD
-//             "package":{
+//         "chartD": {                  // This chart is the subchart of chartA and original name is chartD
+//             "package":{              // We will find the subchart from library/chartA/1.0.2
 //                 "independent":false,
-//                 "space":"library", 	// When independent is false, the space should be same as its parent
-//                 "chart":"chartD",  	// The original name of the subchart
-//                 "version":"2.3.4"  	// The version of subchart
-//				   						// We will find the subchart from library/chartA/1.0.2
+//                 "space":"library",   // When independent is false, the space should be same as its parent
+//                 "chart":"chartD",    // The original name of the subchart
+//                 "version":"2.3.4"    // The version of subchart
 //             }
 //         }
 //     },
@@ -135,7 +133,7 @@ func create(parent *chart.Chart, configs map[string]interface{}) (*chart.Chart, 
 	return currentChart, nil
 }
 
-// getChartByPackage
+// getChartByPackage returns a chart via package configs
 func getChartByPackage(parent *chart.Chart, pkg *Package) (*chart.Chart, error) {
 	chartName := fmt.Sprintf("%s/%s", pkg.Chart, pkg.Version)
 	if pkg.Independent {
@@ -150,7 +148,6 @@ func getChartByPackage(parent *chart.Chart, pkg *Package) (*chart.Chart, error) 
 		}
 	}
 	return nil, errors.ErrorContentNotFound.Format(fmt.Sprintf("%s in %s/%s", chartName, parent.Metadata.Name, parent.Metadata.Version))
-
 }
 
 // getChart gets a chart

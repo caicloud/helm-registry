@@ -10,7 +10,7 @@ import (
 
 // Descriptor defines a http api
 type Descriptor struct {
-	// Path describes a url path that the handler can handle it
+	// Path describes a url path that the handler can handle
 	Path string
 	// Handlers describes an array of http handlers
 	Handlers []Handler
@@ -18,7 +18,6 @@ type Descriptor struct {
 
 // Handler defines a http handler
 type Handler struct {
-
 	// HTTPMethod should be a valid http method (eg. GET POST PUT DELETE ...)
 	HTTPMethod string
 
