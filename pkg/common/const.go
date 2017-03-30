@@ -18,6 +18,9 @@ const (
 
 	// ParameterNameStorageDriver is the name of Storage Driver in Parameters
 	ParameterNameStorageDriver = "storagedriver"
+
+	// ParameterResourceLocker is the name of Resource Locker in Parameters
+	ParameterResourceLocker = "resourcelocker"
 )
 
 const (
