@@ -151,7 +151,7 @@ func getPaging(ctx context.Context) (int, int, error) {
 	return s, l, nil
 }
 
-// listStrings is a helper and get an array of strings from f(). Then select a specified range
+// listStrings is a helper to get an array of strings from f(). Then select a specified range
 // of the array by paging info. It returns original array length and selected array.
 func listStrings(ctx context.Context, f func() ([]string, error)) (int, []string, error) {
 	start, limit, err := getPaging(ctx)
@@ -215,7 +215,7 @@ func getChartConfig(ctx context.Context) (*types.OrchestrationConfig, error) {
 	return config, err
 }
 
-// managerCallback is used for pass space,chart and version
+// managerCallback is used for passing space, chart and version
 type managerCallback func(space storage.Space, chart storage.Chart, version storage.Version) error
 
 // managerHelper is helper for getting a space/chart/version info from ctx

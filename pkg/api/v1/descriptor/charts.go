@@ -51,7 +51,7 @@ var charts = []definition.Descriptor{
 					},
 				},
 				StatusCode: []definition.StatusCode{
-					definition.StatusCode{Code: http.StatusOK, Message: "Success and respond with a array of chart names",
+					definition.StatusCode{Code: http.StatusOK, Message: "Success and respond with an array of chart names",
 						Sample: &models.ListResponse{
 							Metadata: models.Metadata{
 								Total:       10,
@@ -69,13 +69,13 @@ var charts = []definition.Descriptor{
 				Doc:        "Create a chart by config or Upload a chart",
 				Note: `
 If ContentType is 'multipart/form-data', the request is handled as uploading a chart. Otherwise it is
-handled by creating chart and request body should be an orchestration config. The config is an json string
-and a sample as below:
+handled by creating chart and request body should be an orchestration config. The config is a json string;
+below is a sample:
 {
     "save":{                            // key, required
         "chart":"chart name",           // string, required
-        "version":"1.0.0",              // string, required    
-		"description":"description"            // string, optional
+        "version":"1.0.0",              // string, required
+        "description":"description"     // string, optional
     },
     "configs":{                         // key, required
         "package":{                     // key, required
@@ -85,11 +85,11 @@ and a sample as below:
             "version":"version number"  // string, required
         },
         "_config": {                    // key, required
-        // root chart config
+            // root chart config
         },
         "chartB": {
             "package":{
-                "independent":true,        
+                "independent":true,
                 "space":"space name",
                 "chart":"chart name",
                 "version":"version number"

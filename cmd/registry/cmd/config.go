@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 
 	"github.com/caicloud/helm-registry/pkg/common"
+	"github.com/caicloud/helm-registry/pkg/log"
 	"github.com/ghodss/yaml"
 )
 
@@ -38,6 +39,7 @@ func newDefaultConfig() *Config {
 			Parameters: map[string]interface{}{
 				common.ParameterNameStorageDriver: "filesystem",
 				common.ParameterNameRootDirectory: "/var/lib/helm",
+				common.ParameterResourceLocker:    "memory",
 			},
 		},
 	}
@@ -55,6 +57,8 @@ func newConfig(filepath string) (*Config, error) {
 		if err != nil {
 			return nil, err
 		}
+	} else {
+		log.Printf("Using default config %v", config)
 	}
 	return config, nil
 }

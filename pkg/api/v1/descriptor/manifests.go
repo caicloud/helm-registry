@@ -53,7 +53,7 @@ var manifests = []definition.Descriptor{
 					},
 				},
 				StatusCode: []definition.StatusCode{
-					definition.StatusCode{Code: http.StatusOK, Message: "Success and respond with a array of metadata",
+					definition.StatusCode{Code: http.StatusOK, Message: "Success and respond with an array of metadata",
 						Sample: &models.ListResponse{
 							Metadata: models.Metadata{
 								Total:       10,
@@ -114,7 +114,7 @@ var manifests = []definition.Descriptor{
 					},
 				},
 				StatusCode: []definition.StatusCode{
-					definition.StatusCode{Code: http.StatusOK, Message: "Success and respond with a array of latest metadata",
+					definition.StatusCode{Code: http.StatusOK, Message: "Success and respond with an array of latest metadata",
 						Sample: &models.ListResponse{
 							Metadata: models.Metadata{
 								Total:       10,
@@ -181,7 +181,7 @@ var manifests = []definition.Descriptor{
 					},
 				},
 				StatusCode: []definition.StatusCode{
-					definition.StatusCode{Code: http.StatusOK, Message: "Success and respond with a array of metadata",
+					definition.StatusCode{Code: http.StatusOK, Message: "Success and respond with an array of metadata",
 						Sample: &models.ListResponse{
 							Metadata: models.Metadata{
 								Total:       10,

@@ -51,6 +51,7 @@ func init() {
 // For example, a simple manager uses filesystem storage driver as backend, parameters should be:
 //  "storagedriver": "filesystem"
 //  "rootdirectory": "/path/to/empty/dir"
+//  "resourcelocker": "memory"
 type simpleSpaceManagerFactory struct{}
 
 // Create creates a new SpaceManager

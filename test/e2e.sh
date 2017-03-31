@@ -5,7 +5,7 @@ set -e
 # Bin path
 BIN_PATH=$1
 if [ "${BIN_PATH}" = "" ]
-then 
+then
   echo "must specify the bin path of registy"
   exit -1
 fi
@@ -16,7 +16,7 @@ E2E_ROOT="$(cd $(dirname "${BASH_SOURCE}");pwd)"
 TMP_PATH=${BIN_ROOT}/temp
 DATA_PATH=${TMP_PATH}/data
 
-# Clean up 
+# Clean up
 function local-cleanup {
   [ -n "${REGISTRY_PID-}" ] && ps -p ${REGISTRY_PID} > /dev/null && kill ${REGISTRY_PID}
   rm -rf ${TMP_PATH}
@@ -28,9 +28,9 @@ trap local-cleanup INT EXIT
 mkdir -p ${DATA_PATH}
 cat > ${TMP_PATH}/config.yaml <<EOF
 listen: ":9999"
-manager: 
+manager:
   name: "simple"
-  parameters: 
+  parameters:
     resourcelocker: memory
     storagedriver: filesystem
     rootdirectory: "${DATA_PATH}"

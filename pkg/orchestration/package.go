@@ -8,9 +8,9 @@ import "github.com/caicloud/helm-registry/pkg/errors"
 
 // Package describes infomation of a chart in registry
 type Package struct {
-	// Independent identifies whether the chart is a independent and complete chart package.
+	// Independent identifies whether the chart is an independent and complete chart package.
 	// If the field is false, It means that the package is contained by its parent
-	// package. On other word, the package is not a independent package.
+	// package. On other word, the package is not an independent package.
 	Independent bool
 	// Space is the name of space where the package is stored. If Independent is false, the
 	// space is same as its parent's space
