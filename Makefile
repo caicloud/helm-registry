@@ -5,7 +5,7 @@ TEST = ./e2etest
 TEST_BUILD = $(TEST)/registry
 
 .PHONY : registry
-registry : 
+registry :
 	$(GOBUILD) -o $(DEST)/$@ ./cmd/registry
 
 .PHONY : testbuild
@@ -18,8 +18,7 @@ e2etest :
 
 .PHONY : test
 test : | testbuild e2etest clean
-	
+
 .PHONY : clean
 clean :
 	rm -rf $(TEST)
-

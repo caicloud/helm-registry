@@ -11,9 +11,15 @@ import (
 	"github.com/caicloud/helm-registry/pkg/common"
 	"github.com/caicloud/helm-registry/pkg/log"
 	"github.com/emicklei/go-restful"
+	"github.com/go-openapi/spec"
 	"github.com/spf13/cobra"
 	"gopkg.in/tylerb/graceful.v1"
+
+	restfulspec "github.com/emicklei/go-restful-openapi"
 )
+
+// major version of helm-registry
+const version = "v1"
 
 // config path
 var configPath = ""
@@ -37,10 +43,36 @@ var serveCmd = &cobra.Command{
 
 		// start server
 		api.Initialize()
+
+		// install openapi path
+		restful.DefaultContainer.Add(restfulspec.NewOpenAPIService(
+			restfulspec.Config{
+				WebServices:    restful.RegisteredWebServices(),
+				WebServicesURL: config.Listen,
+				APIPath:        "/apidocs.json",
+				PostBuildSwaggerObjectHandler: enrichSwaggerObject,
+			},
+		))
+
 		log.Infof("Listening address %s", config.Listen)
 		graceful.Run(config.Listen, 5*time.Minute, restful.DefaultContainer)
 		log.Error("Server stopped")
 	},
+}
+
+// enrichSwaggerObject adds more documentation to swagger API
+func enrichSwaggerObject(swo *spec.Swagger) {
+	swo.Info = &spec.Info{
+		InfoProps: spec.InfoProps{
+			Title:       "Helm registry",
+			Description: "Helm Registry stores helm charts in a hierarchy storage structure and provides a function to orchestrate charts from existing ones.",
+			Contact: &spec.ContactInfo{
+				Name:  "Guowei",
+				Email: "guowei@caicloud.io",
+			},
+			Version: version,
+		},
+	}
 }
 
 func init() {
