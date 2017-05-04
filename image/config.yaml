@@ -1,0 +1,7 @@
+listen: ":8099"
+manager:
+  name: "simple"
+  parameters:
+    resourcelocker: memory
+    storagedriver: filesystem
+    rootdirectory: "/data"
