@@ -286,10 +286,11 @@ func (c *Chart) Delete(ctx context.Context, version string) error {
 		return ErrorLocking.Format("version", c.Space.Name()+"/"+c.Name()+"/"+version)
 	}
 	err := deleteKeys(ctx, c.Space.SpaceManager.Backend, path.Join(c.Prefix, version), true)
+	// unlock before return
+	lock.Unlock()
 	if err != nil {
 		return err
 	}
-	lock.Unlock()
 	versions, err := c.List(ctx)
 	if err == nil && len(versions) <= 0 {
 		// delete chart if has no version
