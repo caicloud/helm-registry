@@ -1,4 +1,4 @@
-def IMAGE_TAG = "caicloud/helm-registry:ci-${env.BUILD_NUMBER}"
+def IMAGE_TAG = "caicloud/helm-registry:${params.imageTag}"
 
 podTemplate(
     cloud: 'dev-cluster',
@@ -57,6 +57,10 @@ podTemplate(
                 }
 
                 stage('Run e2e test') {
+                    if (!params.integration) {
+                        echo "skip integration"
+                        return
+                    }
                     sh('''
                         set -e
                         cd ${WORKDIR}
@@ -66,18 +70,37 @@ podTemplate(
             }
 
             stage("Build image and publish") {
+                if (!params.publish) {
+                    echo "skip publish"
+                    return
+                }
                 sh "docker build -t ${IMAGE_TAG} -f image/Dockerfile ."
 
                 docker.withRegistry("https://cargo.caicloudprivatetest.com", "cargo-private-admin") {
                     docker.image(IMAGE_TAG).push()
                 }
+                if (params.autoGitTag) {
+                    echo "auto git tag: " + params.imageTag
+                    withCredentials ([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'caicloud-bot', usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_PASSWORD']]){
+                        sh("git config --global user.email \"info@caicloud.io\"")
+                        sh("git tag -a $imageTag -m \"$tagDescribe\"")
+                        sh("git push https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/caicloud/helm-registry $imageTag")
+                   }
+                } 
             }
         }
 
         stage('Deploy') {
-            sh('''
-                echo "skip deployment"
-            ''')
+            if (!params.deploy) {
+                echo "skip deploy"
+                return
+            }
+            def kubeconfig = "kubeconfig-${params.deployTarget}"
+            withCredentials([[$class: 'FileBinding', credentialsId: kubeconfig, variable: 'SECRET_FILE']]) {
+                sh("""
+                    kubectl --kubeconfig=$SECRET_FILE --namespace default get deploy helm-registry-v0.1.0 -o yaml | sed 's/helm-registry:.*\$/helm-registry:${params.imageTag}/' | kubectl --kubeconfig=$SECRET_FILE --namespace default replace -f -
+                """)
+            }
         }
     }
 }
