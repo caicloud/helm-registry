@@ -5,8 +5,13 @@ Copyright 2017 caicloud authors. All rights reserved.
 package lock
 
 import (
+	"fmt"
+	"path"
 	"sync"
+	"sync/atomic"
 	"time"
+
+	"github.com/caicloud/helm-registry/pkg/log"
 )
 
 // deadline stores the nanoseconds of the deadline.
@@ -22,13 +27,27 @@ func (dl deadline) left() time.Duration {
 	return time.Duration(int64(dl) - time.Now().UnixNano())
 }
 
+var counter uint64 = 0
+
 // Locks stores an array of locker. Order by parent then child.
-type Locks []Locker
+type Locks struct {
+	locks []Locker
+	name  string
+	id    uint64
+}
+
+// Name returns name of locks
+func (l *Locks) Name() string {
+	return fmt.Sprintf("%s(%d)", l.name, l.id)
+}
 
 // Lock tries lock for writing. If locked, return true
-func (locks Locks) Lock(timeout time.Duration) bool {
+func (l *Locks) Lock(timeout time.Duration) bool {
+	log.Debugf("lock %s", l.Name())
+	locks := l.locks
 	maxIndex := len(locks) - 1
 	if maxIndex < 0 {
+		log.Debugf("failed to lock %s due to no underlying lock", l.Name())
 		return false
 	}
 	i := 0
@@ -40,14 +59,17 @@ func (locks Locks) Lock(timeout time.Duration) bool {
 	}
 	if i != maxIndex || !locks[maxIndex].Lock(deadline.left()) {
 		// rollback
-		locks.rUnlock(i)
+		l.rUnlock(i)
+		log.Debugf("failed to lock %s, rollback", l.Name())
 		return false
 	}
+	log.Debugf("lock %s successfully", l.Name())
 	return true
 }
 
 // rUnlock unlocks locker from length-1 to 0
-func (locks Locks) rUnlock(length int) {
+func (l *Locks) rUnlock(length int) {
+	locks := l.locks
 	if len(locks) < length || length <= 0 {
 		return
 	}
@@ -57,34 +79,45 @@ func (locks Locks) rUnlock(length int) {
 }
 
 // Unlock unlock write lock
-func (locks Locks) Unlock() {
+func (l *Locks) Unlock() {
+	log.Debugf("unlock %s", l.Name())
+	locks := l.locks
 	maxIndex := len(locks) - 1
 	if maxIndex < 0 {
 		return
 	}
 	locks[maxIndex].Unlock()
-	locks.rUnlock(maxIndex)
+	l.rUnlock(maxIndex)
+	log.Debugf("unlock %s successfully", l.Name())
 }
 
 // RLock tries lock for reading. If locked, return true
-func (locks Locks) RLock(timeout time.Duration) bool {
+func (l *Locks) RLock(timeout time.Duration) bool {
+	log.Debugf("rlock %s", l.Name())
+	locks := l.locks
 	length := len(locks)
 	if length <= 0 {
+		log.Debugf("failed to rlock %s due to no underlying lock", l.Name())
 		return false
 	}
 	deadline := newDeadline(timeout)
 	for i := 0; i < length; i++ {
 		if !locks[i].RLock(deadline.left()) {
-			locks.rUnlock(i)
+			l.rUnlock(i)
+			log.Debugf("failed to rlock %s, rollback", l.Name())
 			return false
 		}
 	}
+	log.Debugf("rlock %s successfully", l.Name())
 	return true
 }
 
 // RUnlock unlock read lock
-func (locks Locks) RUnlock() {
-	locks.rUnlock(len(locks))
+func (l *Locks) RUnlock() {
+	log.Debugf("runlock %s", l.Name())
+	locks := l.locks
+	l.rUnlock(len(locks))
+	log.Debugf("runlock %s successfully", l.Name())
 }
 
 // HierarchicalLock stores the relationship of lockers
@@ -116,17 +149,22 @@ func NewResourceLock(creator func() Locker) *ResourceLock {
 func (rl *ResourceLock) Get(res ...string) Locker {
 	rl.lock.Lock()
 	defer rl.lock.Unlock()
-	result := Locks{}
+	result := &Locks{
+		name:  path.Join(res...),
+		locks: make([]Locker, len(res)),
+		id:    atomic.AddUint64(&counter, 1),
+	}
 	children := rl.Locks
-	for _, r := range res {
+	for i, r := range res {
 		lock, ok := children[r]
 		if !ok {
 			lock = NewHierarchicalLock(rl.CreateLock())
 			children[r] = lock
 			children = lock.Children
 		}
-		result = append(result, lock.Lock)
+		result.locks[i] = lock.Lock
 	}
+	log.Debugf("get locks %s", result.Name())
 	return result
 }
 

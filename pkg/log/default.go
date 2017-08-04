@@ -4,15 +4,63 @@ Copyright 2017 caicloud authors. All rights reserved.
 
 package log
 
-import "github.com/Sirupsen/logrus"
+import (
+	"fmt"
+	"os"
+	"strings"
+
+	"github.com/Sirupsen/logrus"
+)
+
+const (
+	// ENV for logger
+	LogLevel     = "ENV_LOG_LEVEL"
+	LogFormatter = "ENV_LOG_FORMATTER"
+
+	// Log Level
+	LogLevelDebug   = "debug"
+	LogLevelInfo    = "info"
+	LogLevelWarning = "warning"
+	LogLevelError   = "error"
+	LogLevelFatal   = "fatal"
+	LogLevelPanic   = "panic"
+
+	// Log Formatter Type
+	LogFormatterJson = "json"
+	LogFormatterText = "text"
+)
 
 // DefaultLogger is the Default Logger
 var DefaultLogger Logger
 
 func init() {
+	// get log level from env
+	logLevel := strings.ToLower(os.Getenv(LogLevel))
+	if logLevel == "" {
+		logLevel = LogLevelInfo
+	}
+	level, err := logrus.ParseLevel(logLevel)
+	if err != nil {
+		level = logrus.InfoLevel
+		fmt.Println(err)
+	}
+
+	// get formatter name from env
+	logFormatter := strings.ToLower(os.Getenv(LogFormatter))
+	if logFormatter != LogFormatterJson {
+		logFormatter = LogFormatterText
+	}
+
 	// Create default logger
 	logger := logrus.New()
-	logger.Formatter = &logrus.JSONFormatter{}
+	if logFormatter == LogFormatterJson {
+		logger.Formatter = &logrus.JSONFormatter{}
+	} else {
+		logger.Formatter = &logrus.TextFormatter{}
+	}
+	logger.Level = level
+
+	// set default logger
 	DefaultLogger = logger
 }
 
