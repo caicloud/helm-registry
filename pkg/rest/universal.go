@@ -25,6 +25,11 @@ func NewUniversalClient(endpoint string) *UniversalClient {
 	return &UniversalClient{&http.Client{}, strings.TrimRight(endpoint, "\\/")}
 }
 
+// NewUniversalTransportClient creates a UniversalClient with transport
+func NewUniversalTransportClient(endpoint string, transport http.RoundTripper) *UniversalClient {
+	return &UniversalClient{&http.Client{Transport: transport}, strings.TrimRight(endpoint, "\\/")}
+}
+
 // Do requests specific api and gets response. If there is no error,
 // It will returns specific result of corresponding api.
 func (cc *UniversalClient) Do(api API) (interface{}, error) {

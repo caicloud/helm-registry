@@ -5,6 +5,7 @@ Copyright 2017 caicloud authors. All rights reserved.
 package v1
 
 import (
+	"net/http"
 	"strings"
 
 	"github.com/caicloud/helm-registry/pkg/api/models"
@@ -20,6 +21,12 @@ type Client struct {
 // NewClient creates a new registry client. endpoint is the address of server
 func NewClient(endpoint string) (*Client, error) {
 	client := &Client{rest.NewUniversalClient(strings.TrimRight(endpoint, "\\/"))}
+	return client, nil
+}
+
+// NewTransportClient creates a new registry client. endpoint is the address of server with transport
+func NewTransportClient(endpoint string, transport http.RoundTripper) (*Client, error) {
+	client := &Client{rest.NewUniversalTransportClient(strings.TrimRight(endpoint, "\\/"), transport)}
 	return client, nil
 }
 
