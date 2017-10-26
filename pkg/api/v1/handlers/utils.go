@@ -215,6 +215,25 @@ func getChartConfig(ctx context.Context) (*types.OrchestrationConfig, error) {
 	return config, err
 }
 
+// getMetadata gets metadata
+func getMetadata(ctx context.Context) (*storage.Metadata, error) {
+	data, err := readDataFromBody(ctx)
+	if err != nil {
+		return nil, err
+	}
+	metadata := &storage.Metadata{}
+	err = json.Unmarshal(data, metadata)
+	if err != nil {
+		return nil, errors.ErrorParamTypeError.Format("body", "metadata", "unknown")
+	}
+	return metadata, nil
+}
+
+// getValues gets values
+func getValues(ctx context.Context) ([]byte, error) {
+	return readDataFromBody(ctx)
+}
+
 // managerCallback is used for passing space, chart and version
 type managerCallback func(space storage.Space, chart storage.Chart, version storage.Version) error
 
