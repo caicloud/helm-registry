@@ -7,15 +7,29 @@ package handlers
 import (
 	"context"
 	"path"
+	"strings"
 
 	"github.com/caicloud/helm-registry/pkg/api/models"
 	"github.com/caicloud/helm-registry/pkg/common"
+	"github.com/caicloud/helm-registry/pkg/errors"
 )
 
 // ListSpaces lists spaces
 func ListSpaces(ctx context.Context) (int, []string, error) {
 	return listStrings(ctx, func() ([]string, error) {
-		return common.MustGetSpaceManager().List(ctx)
+		spaces, err := common.MustGetSpaceManager().List(ctx)
+		if err != nil {
+			return nil, err
+		}
+		counter := 0
+		prefix := getTenantName(ctx) + "_"
+		for i, space := range spaces {
+			if strings.HasPrefix(space, prefix) {
+				_, spaces[counter] = splitSpace(spaces[i])
+				counter++
+			}
+		}
+		return spaces[:counter], nil
 	})
 }
 
@@ -25,14 +39,19 @@ func CreateSpace(ctx context.Context) (*models.Link, error) {
 	if err != nil {
 		return nil, err
 	}
+	if tenant := getTenantName(ctx); tenant != SpecialTenant && name == SpecialTenantSpace {
+		// Must not create a space named library when tenant is not system-tenant.
+		return nil, errors.ErrorInvalidParam.Format("space", "no permission to create space "+SpecialSpace)
+	}
 	_, err = common.MustGetSpaceManager().Create(ctx, name)
 	if err != nil {
-		return nil, err
+		return nil, translateError(err, name)
 	}
 	link, err := getRequestPath(ctx)
 	if err != nil {
 		return nil, err
 	}
+	_, name = splitSpace(name)
 	return models.NewLink(name, path.Join(link, name)), nil
 }
 
@@ -42,5 +61,9 @@ func DeleteSpace(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return common.MustGetSpaceManager().Delete(ctx, name)
+	if tenant := getTenantName(ctx); tenant != SpecialTenant && name == SpecialTenantSpace {
+		// Must not delete a space named library when tenant is not system-tenant.
+		return errors.ErrorInvalidParam.Format("space", "no permission to delete space "+SpecialSpace)
+	}
+	return translateError(common.MustGetSpaceManager().Delete(ctx, name), name)
 }

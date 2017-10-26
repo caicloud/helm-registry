@@ -7,8 +7,10 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"strconv"
+	"strings"
 
 	"github.com/caicloud/helm-registry/pkg/api/definition"
 	"github.com/caicloud/helm-registry/pkg/api/v1/types"
@@ -17,6 +19,10 @@ import (
 	"github.com/caicloud/helm-registry/pkg/storage"
 	"github.com/emicklei/go-restful"
 )
+
+const SpecialSpace = "library"
+const SpecialTenant = "system-tenant"
+const SpecialTenantSpace = "system-tenant_library"
 
 // getRequestFromContext get request from context
 func getRequestFromContext(ctx context.Context) (*restful.Request, error) {
@@ -66,6 +72,49 @@ func getQueryParameter(ctx context.Context, name string) (string, error) {
 	return value, nil
 }
 
+// getTenantName gets tenant name
+func getTenantName(ctx context.Context) string {
+	tenant, _ := getHeaderParameter(ctx, "X-Tenant")
+	if tenant == "" {
+		tenant = SpecialTenant
+	}
+	return tenant
+}
+
+// glueSpace glues tenant name and space name
+func glueSpace(ctx context.Context, space string) string {
+	if space == SpecialSpace {
+		space = SpecialTenantSpace
+	} else {
+		space = getTenantName(ctx) + "_" + space
+	}
+	return space
+}
+
+// splitSpace splits tenant name and space name
+func splitSpace(space string) (string, string) {
+	index := strings.Index(space, "_")
+	if index < 0 {
+		return SpecialTenant, space
+	}
+	return space[:index], space[index+1:]
+
+}
+
+// translateError translates space to origin space
+func translateError(err error, space string) error {
+	if err == nil {
+		return nil
+	}
+	_, origin := splitSpace(space)
+	e, ok := err.(*errors.Error)
+	if !ok {
+		return fmt.Errorf(strings.Replace(err.Error(), space, origin, -1))
+	}
+	e.Message = strings.Replace(e.Message, space, origin, -1)
+	return e
+}
+
 // getSpaceName gets space name
 func getSpaceName(ctx context.Context) (string, error) {
 	const field = "space"
@@ -73,7 +122,10 @@ func getSpaceName(ctx context.Context) (string, error) {
 	if err != nil {
 		name, err = getQueryParameter(ctx, field)
 	}
-	return name, err
+	if err != nil {
+		return "", err
+	}
+	return glueSpace(ctx, name), nil
 }
 
 // getChartName gets chart name
@@ -212,7 +264,28 @@ func getChartConfig(ctx context.Context) (*types.OrchestrationConfig, error) {
 		return nil, err
 	}
 	config.Save.Space = space
+	modifySpaces(ctx, config.Configs)
 	return config, err
+}
+
+// modifySpaces modifies all spaces in config
+func modifySpaces(ctx context.Context, config map[string]interface{}) {
+	for key, value := range config {
+		if key == "_config" {
+			continue
+		}
+		if data, ok := value.(map[string]interface{}); ok {
+			if key == "package" {
+				if value, ok := data["space"]; ok {
+					if space, ok := value.(string); ok {
+						data["space"] = glueSpace(ctx, space)
+					}
+				}
+			} else {
+				modifySpaces(ctx, data)
+			}
+		}
+	}
 }
 
 // managerCallback is used for passing space, chart and version
