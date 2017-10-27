@@ -95,7 +95,7 @@ var _ = Describe("Chart", func() {
 		}))
 	})
 
-	Context("fetch metadata and values", func() {
+	Context("manipulate metadata and values", func() {
 		It("should get chart metadata", utils.Multicase(combination, func(space, chart, version string) {
 			result, err := client.FetchChartMetadata(space, chart, 0, 100000)
 			Expect(err).To(BeNil())
@@ -106,14 +106,20 @@ var _ = Describe("Chart", func() {
 			Expect(md.Version).To(Equal(version))
 			log.Infoln("get chart metadata", result)
 		}))
-		It("should get version metadata", utils.Multicase(combination, func(space, chart, version string) {
+		It("should manipulate version metadata", utils.Multicase(combination, func(space, chart, version string) {
 			md, err := client.FetchVersionMetadata(space, chart, version)
 			Expect(err).To(BeNil())
 			Expect(md.Name).To(Equal(chart))
 			Expect(md.Version).To(Equal(version))
 			log.Infoln("get version metadata", md)
+			md.Metadata.Description = "test manipulating metadata"
+			md.Metadata.Icon = "http://test.test"
+			newmd, err := client.UpdateVersionMetadata(space, chart, version, &md.Metadata)
+			Expect(err).To(BeNil())
+			Expect(md.Metadata.Description).To(Equal(newmd.Metadata.Description))
+			Expect(md.Metadata.Icon).To(Equal(newmd.Metadata.Icon))
 		}))
-		It("should get version values", utils.Multicase(combination, func(space, chart, version string) {
+		It("should manipulate version values", utils.Multicase(combination, func(space, chart, version string) {
 			values, err := client.FetchVersionValues(space, chart, version)
 			Expect(err).To(BeNil())
 			obj := map[string]interface{}{}
@@ -129,6 +135,15 @@ var _ = Describe("Chart", func() {
 			Expect(memory["requests"]).To(Equal("128Mi"))
 			Expect(memory["limits"]).To(Equal("128Mi"))
 			log.Infoln("get version values", string(values))
+			obj["replicaCount"] = 4
+			values, err = json.Marshal(obj)
+			Expect(err).To(BeNil())
+			values, err = client.UpdateVersionValues(space, chart, version, values)
+			Expect(err).To(BeNil())
+			obj = map[string]interface{}{}
+			err = json.Unmarshal(values, &obj)
+			Expect(err).To(BeNil())
+			Expect(obj["replicaCount"]).To(Equal(4.0))
 		}))
 	})
 
