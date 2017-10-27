@@ -5,12 +5,14 @@ Copyright 2017 caicloud authors. All rights reserved.
 package v1
 
 import (
+	"encoding/json"
 	"net/http"
 	"strings"
 
 	"github.com/caicloud/helm-registry/pkg/api/models"
 	"github.com/caicloud/helm-registry/pkg/rest"
 	"github.com/caicloud/helm-registry/pkg/storage"
+	"k8s.io/helm/pkg/proto/hapi/chart"
 )
 
 // Client is a registry client for managing registry server
@@ -143,11 +145,35 @@ func (c *Client) FetchVersionMetadata(spaceName string, chartName string, versio
 	return api.Convert(c.Do(api))
 }
 
+// UpdateVersionMetadata updates metadata of version
+func (c *Client) UpdateVersionMetadata(spaceName string, chartName string, versionNumber string, metadata *chart.Metadata) (*storage.Metadata, error) {
+	data, err := json.Marshal(metadata)
+	if err != nil {
+		return nil, rest.ErrorUnknownLocalError.Format(err.Error())
+	}
+	api := NewAPIUpdateVersionMetadata()
+	api.Space = spaceName
+	api.Chart = chartName
+	api.Version = versionNumber
+	api.Metadata = data
+	return api.Convert(c.Do(api))
+}
+
 // FetchVersionValues fetches values of version
 func (c *Client) FetchVersionValues(spaceName string, chartName string, versionNumber string) ([]byte, error) {
 	api := NewAPIFetchVersionValues()
 	api.Space = spaceName
 	api.Chart = chartName
 	api.Version = versionNumber
+	return api.Convert(c.Do(api))
+}
+
+// UpdateVersionValues updates values of version
+func (c *Client) UpdateVersionValues(spaceName string, chartName string, versionNumber string, values []byte) ([]byte, error) {
+	api := NewAPIUpdateVersionValues()
+	api.Space = spaceName
+	api.Chart = chartName
+	api.Version = versionNumber
+	api.Values = values
 	return api.Convert(c.Do(api))
 }
