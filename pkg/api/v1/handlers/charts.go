@@ -55,10 +55,10 @@ func CreateChart(ctx context.Context) (*models.ChartLink, error) {
 		return nil, err
 	}
 	if !space.Exists(ctx) {
-		return nil, errors.ErrorContentNotFound.Format(config.Save.Space)
+		return nil, translateError(errors.ErrorContentNotFound.Format(config.Save.Space), config.Save.Space)
 	}
 	if version.Exists(ctx) {
-		return nil, errors.ErrorResourceExist.Format(config.Save.Path())
+		return nil, translateError(errors.ErrorResourceExist.Format(config.Save.Path()), config.Save.Space)
 	}
 	configs, values, err := separateConfigs(config.Configs)
 	if err != nil {
