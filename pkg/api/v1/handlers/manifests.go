@@ -5,11 +5,16 @@ Copyright 2017 caicloud authors. All rights reserved.
 package handlers
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 
 	"github.com/caicloud/helm-registry/pkg/common"
 	"github.com/caicloud/helm-registry/pkg/errors"
+	"github.com/caicloud/helm-registry/pkg/orchestration"
 	"github.com/caicloud/helm-registry/pkg/storage"
+	"github.com/ghodss/yaml"
+	"k8s.io/helm/pkg/chartutil"
 )
 
 // ListMetadataInSpace lists all metadata in a space
@@ -109,10 +114,81 @@ func FetchMetadata(ctx context.Context) (metadata *storage.Metadata, err error) 
 	return
 }
 
+// UpdateMetadata updates metadata
+func UpdateMetadata(ctx context.Context) (metadata *storage.Metadata, err error) {
+	err = managerHelper(ctx, func(space storage.Space, chart storage.Chart, version storage.Version) error {
+		md, err := getMetadata(ctx)
+		if err != nil {
+			return err
+		}
+		data, err := version.GetContent(ctx)
+		if err != nil {
+			return err
+		}
+		origin, err := chartutil.LoadArchive(bytes.NewReader(data))
+		if err != nil {
+			return errors.ErrorInternalTypeError.Format(
+				fmt.Sprintf("%s/%s", chart.Name(), version.Number()), "chart", "unknown")
+		}
+		if origin.Metadata.Name != md.Name {
+			return errors.ErrorParamValueError.Format("name", origin.Metadata.Name, md.Name)
+		}
+		if origin.Metadata.Version != md.Version {
+			return errors.ErrorParamValueError.Format("version", origin.Metadata.Version, md.Version)
+		}
+		*origin.Metadata = md.Metadata
+		data, err = orchestration.Archive(origin)
+		if err != nil {
+			return err
+		}
+		err = version.PutContent(ctx, data)
+		if err != nil {
+			return err
+		}
+		metadata, err = storage.CoalesceMetadata(origin)
+		return err
+	})
+	return
+}
+
 // FetchValues fetches values of specified version
 func FetchValues(ctx context.Context) (data []byte, err error) {
 	err = managerHelper(ctx, func(space storage.Space, chart storage.Chart, version storage.Version) error {
 		data, err = version.Values(ctx)
+		return err
+	})
+	return
+}
+
+// UpdateValues updates values
+func UpdateValues(ctx context.Context) (values []byte, err error) {
+	err = managerHelper(ctx, func(space storage.Space, chart storage.Chart, version storage.Version) error {
+		values, err = getValues(ctx)
+		if err != nil {
+			return err
+		}
+		yamlValues, err := yaml.JSONToYAML(values)
+		if err != nil {
+			return errors.ErrorParamTypeError.Format("values", "json", "unknown")
+		}
+		data, err := version.GetContent(ctx)
+		if err != nil {
+			return err
+		}
+		origin, err := chartutil.LoadArchive(bytes.NewReader(data))
+		if err != nil {
+			return errors.ErrorInternalTypeError.Format(
+				fmt.Sprintf("%s/%s", chart.Name(), version.Number()), "chart", "unknown")
+		}
+		origin.Values.Raw = string(yamlValues)
+		data, err = orchestration.Archive(origin)
+		if err != nil {
+			return err
+		}
+		err = version.PutContent(ctx, data)
+		if err != nil {
+			return err
+		}
 		return err
 	})
 	return

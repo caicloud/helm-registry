@@ -3,6 +3,12 @@
 	"ignore": "test",
 	"package": [
 		{
+			"checksumSHA1": "Pc2ORQp+VY3Un/dkh4QwLC7R6lE=",
+			"path": "github.com/BurntSushi/toml",
+			"revision": "a368813c5e648fee92e5f6c30e3944ff9d5e8895",
+			"revisionTime": "2017-06-26T11:06:00Z"
+		},
+		{
 			"checksumSHA1": "dGXnnR7ZhsrZNnEqFimk6q7YCqs=",
 			"path": "github.com/Sirupsen/logrus",
 			"revision": "61e43dc76f7ee59a82bdf3d71033dc12bea4c77d",
@@ -68,6 +74,12 @@
 			"path": "github.com/emicklei/go-restful/log",
 			"revision": "d916db217751a3fef55337f799c31fde4b8efcf1",
 			"revisionTime": "2016-12-22T19:12:39Z"
+		},
+		{
+			"checksumSHA1": "xgvS2Y6lZSOs9iOrPO5eJi2XWr8=",
+			"path": "github.com/facebookgo/symwalk",
+			"revision": "42004b9f322246749dd73ad71008b1f3160c0052",
+			"revisionTime": "2015-07-26T03:59:30Z"
 		},
 		{
 			"checksumSHA1": "muGVyM8mY3/gcap6kr4Ib3F5Xn4=",
@@ -412,28 +424,34 @@
 			"revisionTime": "2016-09-28T15:37:09Z"
 		},
 		{
-			"checksumSHA1": "nVpk9djeRfZQn/bWFuJ98i01K6U=",
+			"checksumSHA1": "EuqAkTwZIcIu01GoQXO/agISKCY=",
+			"path": "k8s.io/apimachinery/pkg/version",
+			"revision": "18a564baac720819100827c16fdebcadb05b2d0d",
+			"revisionTime": "2017-10-26T18:46:55Z"
+		},
+		{
+			"checksumSHA1": "7Vk4Lc7zjkDgbaP08CCLGRpeep4=",
 			"path": "k8s.io/helm/pkg/chartutil",
-			"revision": "5a33f462ef4b250876e22dbaedbd0787f217b64d",
-			"revisionTime": "2017-01-13T22:26:55Z"
+			"revision": "f2f036e047ad37b38f9f851341b14dcb4941d606",
+			"revisionTime": "2017-07-12T16:05:46Z"
 		},
 		{
 			"checksumSHA1": "DMwBqTHLy2b207GQkqd4yGLvUoU=",
 			"path": "k8s.io/helm/pkg/ignore",
-			"revision": "5a33f462ef4b250876e22dbaedbd0787f217b64d",
-			"revisionTime": "2017-01-13T22:26:55Z"
+			"revision": "f2f036e047ad37b38f9f851341b14dcb4941d606",
+			"revisionTime": "2017-07-12T16:05:46Z"
 		},
 		{
-			"checksumSHA1": "W3M1pklBiwLcZYLPgXuQC+Y+ua8=",
+			"checksumSHA1": "Wof02BCk7XBOvgghks2T/NdAxg8=",
 			"path": "k8s.io/helm/pkg/proto/hapi/chart",
-			"revision": "5a33f462ef4b250876e22dbaedbd0787f217b64d",
-			"revisionTime": "2017-01-13T22:26:55Z"
+			"revision": "f2f036e047ad37b38f9f851341b14dcb4941d606",
+			"revisionTime": "2017-07-12T16:05:46Z"
 		},
 		{
-			"checksumSHA1": "2VKsMrVvQAqR1L3VodzXruT9Urw=",
+			"checksumSHA1": "giwAIpAGtbFKDXO3HFr4PPTf5WY=",
 			"path": "k8s.io/helm/pkg/proto/hapi/version",
-			"revision": "5a33f462ef4b250876e22dbaedbd0787f217b64d",
-			"revisionTime": "2017-01-13T22:26:55Z"
+			"revision": "f2f036e047ad37b38f9f851341b14dcb4941d606",
+			"revisionTime": "2017-07-12T16:05:46Z"
 		},
 		{
 			"checksumSHA1": "10L4BTxzuCWOhtYp/tjB4PLEmPY=",
