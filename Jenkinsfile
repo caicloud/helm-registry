@@ -1,106 +1,102 @@
-def IMAGE_TAG = "caicloud/helm-registry:${params.imageTag}"
+def registryImage = "caicloud/helm-registry:${params.imageTag}"
+
+
 
 podTemplate(
-    cloud: 'dev-cluster',
-    namespace: 'kube-system',
-    name: 'helm-registry',
-    label: 'helm-registry',
-    idleMinutes: 1440,
-    containers: [
-        containerTemplate(
-            name: 'jnlp',
-            image: "cargo.caicloud.io/circle/jnlp:2.62",
-            alwaysPullImage: true,
-            command: '',
-            args: '${computer.jnlpmac} ${computer.name}',
-        ),
-        containerTemplate(
-            name: 'dind', 
-            image: "cargo.caicloud.io/caicloud/docker:17.03-dind", 
-            alwaysPullImage: true,
-            ttyEnabled: true,
-            command: '', 
-            args: '--host=unix:///home/jenkins/docker.sock',
-            privileged: true,
-        ),
-        containerTemplate(
-            name: 'golang',
-            image: "cargo.caicloud.io/caicloud/golang-docker:1.8.1-17.05",
-            alwaysPullImage: true,
-            ttyEnabled: true,
-            command: '',
-            args: '',
-            envVars: [
-                containerEnvVar(key: 'DOCKER_HOST', value: 'unix:///home/jenkins/docker.sock'),
-                containerEnvVar(key: 'DOCKER_API_VERSION', value: '1.26'),
-                containerEnvVar(key: 'WORKDIR', value: '/go/src/github.com/caicloud/helm-registry')
-            ],
-        ),
-    ]
+   cloud: 'dev-cluster',
+   namespace: 'kube-system',
+   // change the label to your component name.
+   label: 'helm-registry',
+   containers: [
+       // a Jenkins agent (FKA "slave") using JNLP to establish connection.
+       containerTemplate(
+           name: 'jnlp',
+           // alwaysPullImage: true,
+           image: 'cargo.caicloudprivatetest.com/caicloud/jenkins/jnlp-slave:3.14-1-alpine',
+           command: '',
+           args: '${computer.jnlpmac} ${computer.name}',
+       ),
+       // docker in docker
+       containerTemplate(
+           name: 'dind',
+           image: 'cargo.caicloudprivatetest.com/caicloud/docker:17.09-dind',
+           ttyEnabled: true,
+           command: '',
+           args: '--host=unix:///home/jenkins/docker.sock',
+           privileged: true,
+       ),
+       // golang with docker client and tools
+       containerTemplate(
+           name: 'golang',
+           image: 'cargo.caicloudprivatetest.com/caicloud/golang-docker:1.9-17.09',
+           ttyEnabled: true,
+           command: '',
+           args: '',
+           envVars: [
+               containerEnvVar(key: 'DOCKER_HOST', value: 'unix:///home/jenkins/docker.sock'),
+               // Change the environment variable WORKDIR as needed.
+               containerEnvVar(key: 'WORKDIR', value: '/go/src/github.com/caicloud/helm-registry')
+           ],
+       )
+   ]
 ) {
-    node('helm-registry') {
-        stage('Checkout') {
-            checkout scm
-        }
-        container('golang') {
-            ansiColor('xterm') {
+   // Change the node name as the podTemplate label you set.
+   node('helm-registry') {
+       stage('Checkout') {
+          checkout scm
+       }
+       // Change the container name as the container you use for compiling.
+       container('golang') {
+           ansiColor('xterm') {
+               // You can define the stage as you need.
+               stage("Complie") {
+                   sh('''
+                       set -e
+                       mkdir -p $(dirname ${WORKDIR})
+                       rm -rf ${WORKDIR}
+                       ln -sfv $(pwd) ${WORKDIR}
 
-                stage("Complie") {
-                    sh('''
-                        set -e 
-                        mkdir -p $(dirname ${WORKDIR})
-                        rm -rf ${WORKDIR}
-                        ln -sf $(pwd) ${WORKDIR}
-                        cd ${WORKDIR}
-                        make registry
-                    ''')
-                }
 
-                stage('Run e2e test') {
-                    if (!params.integration) {
-                        echo "skip integration"
-                        return
-                    }
-                    sh('''
-                        set -e
-                        cd ${WORKDIR}
-                        make test
-                    ''')
-                }
-            }
+                       cd ${WORKDIR}
+                      
+                       make build
+                   ''')
+               }
 
-            stage("Build image and publish") {
-                if (!params.publish) {
-                    echo "skip publish"
-                    return
-                }
-                sh "docker build -t ${IMAGE_TAG} -f image/Dockerfile ."
 
-                docker.withRegistry("https://cargo.caicloudprivatetest.com", "cargo-private-admin") {
-                    docker.image(IMAGE_TAG).push()
-                }
-                if (params.autoGitTag) {
-                    echo "auto git tag: " + params.imageTag
-                    withCredentials ([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'caicloud-bot', usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_PASSWORD']]){
-                        sh("git config --global user.email \"info@caicloud.io\"")
-                        sh("git tag -a $imageTag -m \"$tagDescribe\"")
-                        sh("git push https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/caicloud/helm-registry $imageTag")
+
+               stage('Unit test') {
+                   sh('''
+                       set -e
+                       cd ${WORKDIR}
+
+
+                       make test
+                   ''')
+               }
+
+
+
+               stage('Build and push image') {
+                   sh('''
+                       set -e
+                       cd ${WORKDIR}
+                   ''')
+
+
+
+                   sh("docker build -t ${registryImage} -f build/registry/Dockerfile .")
+
+
+
+                   // Whether publish the images is controlled by the params.
+                   if (params.publish) {
+                       docker.withRegistry("https://cargo.caicloudprivatetest.com", "cargo-private-admin") {
+                           docker.image(registryImage).push()
+                       }
                    }
-                } 
-            }
-        }
-
-        stage('Deploy') {
-            if (!params.deploy) {
-                echo "skip deploy"
-                return
-            }
-            def kubeconfig = "kubeconfig-${params.deployTarget}"
-            withCredentials([[$class: 'FileBinding', credentialsId: kubeconfig, variable: 'SECRET_FILE']]) {
-                sh("""
-                    kubectl --kubeconfig=$SECRET_FILE --namespace default get deploy helm-registry-v0.1.0 -o yaml | sed 's/helm-registry:.*\$/helm-registry:${params.imageTag}/' | kubectl --kubeconfig=$SECRET_FILE --namespace default replace -f -
-                """)
-            }
-        }
-    }
+               }
+           }
+       }
+   }
 }
