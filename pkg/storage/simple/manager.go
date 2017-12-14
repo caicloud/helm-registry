@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/caicloud/helm-registry/pkg/common"
 	"github.com/caicloud/helm-registry/pkg/lock"
 	"github.com/caicloud/helm-registry/pkg/log"
 	"github.com/caicloud/helm-registry/pkg/storage"
@@ -60,12 +61,12 @@ func (factory *simpleSpaceManagerFactory) Create(parameters map[string]interface
 		return nil, ErrorNoParameter.Format("parameters")
 	}
 	// create resource locker
-	lockerName, ok := parameters["resourcelocker"]
+	lockerName, ok := parameters[common.ParameterResourceLocker]
 	if !ok {
-		return nil, ErrorContentMissing.Format("resourcelocker")
+		return nil, ErrorContentMissing.Format(common.ParameterResourceLocker)
 	}
 	var lockerParams map[string]interface{}
-	lockerParameters, ok := parameters["lockerparameters"]
+	lockerParameters, ok := parameters[common.ParameterLockerParameters]
 	if ok {
 		lockerParams, _ = lockerParameters.(map[string]interface{})
 	}
@@ -74,15 +75,26 @@ func (factory *simpleSpaceManagerFactory) Create(parameters map[string]interface
 		return nil, ErrorInternalUnknown.Format(err)
 	}
 	// create storage driver
-	storageDriverName, ok := parameters["storagedriver"]
+	storageDriverName, ok := parameters[common.ParameterNameStorageDriver]
 	if !ok {
-		return nil, ErrorContentMissing.Format("storagedriver")
+		return nil, ErrorContentMissing.Format(common.ParameterNameStorageDriver)
 	}
 	storageDriver, err := driver.Create(fmt.Sprint(storageDriverName), parameters)
 	if err != nil {
 		return nil, ErrorInternalUnknown.Format(err)
 	}
-	return NewSpaceManager(storageDriver, locker, lock.TimeoutImmediate), nil
+
+	var lockTimeout = lock.TimeoutImmediate
+	paramLockTimeout, ok := parameters[common.ParameterLockTimeout]
+	if ok {
+		timeout, err := strconv.Atoi(fmt.Sprint(paramLockTimeout))
+		if err != nil {
+			return nil, ErrorInvalidParam.Format(err)
+		}
+		lockTimeout = time.Duration(timeout) * time.Millisecond
+	}
+
+	return NewSpaceManager(storageDriver, locker, lockTimeout), nil
 }
 
 // SpaceManager implements storage.SpaceManager interface, and stores charts in file system

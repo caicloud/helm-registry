@@ -21,6 +21,12 @@ const (
 
 	// ParameterResourceLocker is the name of Resource Locker in Parameters
 	ParameterResourceLocker = "resourcelocker"
+
+	// ParameterLockerParameters is the name of Locker Parameters in Parameters
+	ParameterLockerParameters = "lockerparameters"
+
+	// ParameterLockTimeout is the name of Lock/RdLock timeout in Parameters
+	ParameterLockTimeout = "locktimeout"
 )
 
 const (
