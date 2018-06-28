@@ -5,3 +5,4 @@ manager:
     resourcelocker: memory
     storagedriver: filesystem
     rootdirectory: "/data"
+    locktimeout: 200
