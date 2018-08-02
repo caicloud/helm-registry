@@ -21,15 +21,18 @@ func ListSpaces(ctx context.Context) (int, []string, error) {
 		if err != nil {
 			return nil, err
 		}
-		counter := 0
 		prefix := getTenantName(ctx) + "_"
+		ret := make([]string, 0, 0)
 		for i, space := range spaces {
+			if space == SpecialTenantSpace {
+				continue
+			}
 			if strings.HasPrefix(space, prefix) {
-				_, spaces[counter] = splitSpace(spaces[i])
-				counter++
+				_, name := splitSpace(spaces[i])
+				ret = append(ret, name)
 			}
 		}
-		return spaces[:counter], nil
+		return ret, nil
 	})
 }
 
