@@ -1,0 +1,67 @@
+_config:
+  _metadata:
+    description: helm-registry
+    name: helm-registry
+    namespace: default
+    template:
+      type: template.caicloud.io/application
+      version: 1.0.0
+    version: "[[ imageTagFromGitTag ]]"
+  controllers:
+  - containers:
+    - image: '[[ registry_release ]]/helm-registry:[[ imageTagFromGitTag ]]'
+      imagePullPolicy: IfNotPresent
+      mounts:
+      - name: charts-storage
+        path: /data
+      ports:
+      - port: 8099
+        protocol: TCP
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 100m
+          memory: 128Mi
+    controller:
+      replica: 1
+    initContainers:
+    - env:
+      - name: FORCE_UPDATE
+        value: 'true'
+      - name: OUTPUT_DIR
+        value: /data/system-tenant_library
+      - name: IMAGE_DOMAIN
+        value: '[[ cargo_registry ]]'
+      image: '[[ registry_release ]]/charts:v1.2.7'
+      imagePullPolicy: IfNotPresent
+      mounts:
+      - name: charts-storage
+        path: /data
+      name: charts
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 100m
+          memory: 128Mi
+    services:
+    - name: helm-registry
+      ports:
+      - port: 8099
+        protocol: TCP
+        targetPort: 8099
+      type: ClusterIP
+    type: Deployment
+    volumes:
+    - name: charts-storage
+      type: Dynamic
+      source:
+        class: heketi-storageclass
+        modes:
+        - ReadWriteMany
+      storage:
+        request: 4096Mi
+        limit: 4096Mi
