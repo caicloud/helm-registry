@@ -22,6 +22,8 @@ import (
 	"github.com/caicloud/helm-registry/pkg/storage"
 	"github.com/caicloud/helm-registry/pkg/storage/driver"
 	"k8s.io/helm/pkg/chartutil"
+
+	"github.com/buger/jsonparser"
 )
 
 const managerName = "simple"
@@ -515,6 +517,18 @@ func (v *Version) Metadata(ctx context.Context) (*storage.Metadata, error) {
 	if err := v.Validate(ctx); err != nil {
 		return nil, err
 	}
+
+	pathValue := path.Join(v.Prefix, valuesName)
+	dataValue, err := v.Backend.GetContent(ctx, pathValue)
+	if err != nil {
+		return nil, ErrorContentNotFound.Format(err)
+	}
+
+	typeStr, err := jsonparser.GetString(dataValue, "_config", "controllers", "[0]", "type")
+	if err != nil {
+		return nil, ErrorContentNotFound.Format(err)
+	}
+
 	path := path.Join(v.Prefix, metadataName)
 	data, err := v.Backend.GetContent(ctx, path)
 	if err != nil {
@@ -525,6 +539,8 @@ func (v *Version) Metadata(ctx context.Context) (*storage.Metadata, error) {
 	if err != nil {
 		return nil, ErrorInternalUnknown.Format(err)
 	}
+	meta.Type = typeStr
+
 	return meta, nil
 }
 

@@ -16,6 +16,12 @@
 			"revisionTime": "2017-01-13T22:26:55Z"
 		},
 		{
+			"checksumSHA1": "kRu9U692slQgKnLIsD9wAw5CGSk=",
+			"path": "github.com/buger/jsonparser",
+			"revision": "6acdf747ae99cad92d1e8134606008acaca71844",
+			"revisionTime": "2018-07-24T08:32:21Z"
+		},
+		{
 			"checksumSHA1": "0au+tD+jymXNssdb1JgcctY7PN4=",
 			"path": "github.com/docker/distribution/context",
 			"revision": "44eff0143e2d7771be4b1badb7fb9e0cb77f4ca1",
