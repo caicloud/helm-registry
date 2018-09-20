@@ -11,6 +11,7 @@ import (
 // Metadata describes the dependencies of chart metadata
 type Metadata struct {
 	chart.Metadata
+	Type         string      `json:"type"`
 	Dependencies []*Metadata `json:"dependencies,omitempty"`
 }
 
