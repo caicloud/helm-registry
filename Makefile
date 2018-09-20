@@ -26,7 +26,7 @@
 #
 
 # Current version of the project.
-VERSION ?= v0.2.2-experiment
+VERSION ?= v0.2.4-experiment
 
 # This repo's root import path (under GOPATH).
 ROOT := github.com/caicloud/helm-registry
