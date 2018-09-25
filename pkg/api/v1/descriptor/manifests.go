@@ -112,6 +112,18 @@ var manifests = []definition.Descriptor{
 						Required: false,
 						Default:  common.DefaultPagingLimit,
 					},
+					{
+						Name:     "type",
+						Type:     "string",
+						Doc:      "Specify the type of template",
+						Required: false,
+					},
+					{
+						Name:     "sub",
+						Type:     "string",
+						Doc:      "Specify the sub of template",
+						Required: false,
+					},
 				},
 				StatusCode: []definition.StatusCode{
 					definition.StatusCode{Code: http.StatusOK, Message: "Success and respond with an array of latest metadata",
