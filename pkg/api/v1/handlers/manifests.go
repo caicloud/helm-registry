@@ -6,6 +6,7 @@ package handlers
 
 import (
 	"context"
+	"strings"
 
 	"github.com/caicloud/helm-registry/pkg/common"
 	"github.com/caicloud/helm-registry/pkg/errors"
@@ -45,6 +46,10 @@ func ListLatestMetadataInSpace(ctx context.Context) (int, []*storage.Metadata, e
 	if err != nil {
 		return 0, nil, err
 	}
+	kind, sub, err := getFilterCondition(ctx)
+	if err != nil {
+		return 0, nil, err
+	}
 	space, err := common.GetSpace(ctx, spaceName)
 	if err != nil {
 		return 0, nil, err
@@ -55,9 +60,15 @@ func ListLatestMetadataInSpace(ctx context.Context) (int, []*storage.Metadata, e
 	}
 	metadata := make([]*storage.Metadata, 0, len(chartNames))
 	for _, chartName := range chartNames {
+		if len(sub) != 0 && !strings.Contains(chartName, sub) {
+			continue
+		}
 		md, err := getLatestMetadata(ctx, spaceName, chartName)
 		if err != nil {
 			return 0, nil, err
+		}
+		if len(kind) != 0 && md.Type != kind {
+			continue
 		}
 		metadata = append(metadata, md)
 	}

@@ -20,9 +20,13 @@ import (
 	"github.com/emicklei/go-restful"
 )
 
-const SpecialSpace = "library"
-const SpecialTenant = "system-tenant"
-const SpecialTenantSpace = "system-tenant_library"
+const (
+	SpecialSpace        = "library"
+	SpecialTenant       = "system-tenant"
+	SpecialTenantSpace  = "system-tenant_library"
+	FilterConditionType = "type"
+	FilterConditionSub  = "sub"
+)
 
 // getRequestFromContext get request from context
 func getRequestFromContext(ctx context.Context) (*restful.Request, error) {
@@ -173,6 +177,18 @@ func getRequestPath(ctx context.Context) (string, error) {
 		return "", err
 	}
 	return request.Request.URL.Path, nil
+}
+
+// getFilterCondition filter data
+func getFilterCondition(ctx context.Context) (string, string, error) {
+	request, err := getRequestFromContext(ctx)
+	if err != nil {
+		return "", "", err
+	}
+
+	kind := request.QueryParameter(FilterConditionType)
+	sub := request.QueryParameter(FilterConditionSub)
+	return kind, sub, nil
 }
 
 // getPaging gets paging info from context and return start and limit
