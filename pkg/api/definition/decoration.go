@@ -149,9 +149,10 @@ func (hd *HandlerDecoration) Handle(request *restful.Request, resp *restful.Resp
 	// handle error
 	switch err := errValue.Interface().(type) {
 	case *errors.Error:
-		resp.WriteHeaderAndEntity(err.Code, map[string]string{
+		resp.WriteHeaderAndEntity(err.Code, map[string]interface{}{
 			"message": err.Message,
 			"reason":  err.Reason,
+			"data":    err.Data,
 		})
 	case error:
 		log.Infof("%s handler returns an error but the type is not custom error type", hd.Verb)
