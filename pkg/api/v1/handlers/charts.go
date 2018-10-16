@@ -58,7 +58,9 @@ func CreateChart(ctx context.Context) (*models.ChartLink, error) {
 		return nil, translateError(errors.ErrorContentNotFound.Format(config.Save.Space), config.Save.Space)
 	}
 	if version.Exists(ctx) {
-		return nil, translateError(errors.ErrorResourceExist.Format(config.Save.Path()), config.Save.Space)
+		return nil, translateError(errors.NewConflict("charts.name.exists", "${name} exist", errors.M{
+			"name": config.Save.Path(),
+		}), config.Save.Space)
 	}
 	configs, values, err := separateConfigs(config.Configs)
 	if err != nil {
@@ -118,7 +120,9 @@ func UploadChart(ctx context.Context) (*models.ChartLink, error) {
 		return nil, err
 	}
 	if version.Exists(ctx) {
-		return nil, errors.ErrorResourceExist.Format(fmt.Sprintf("%s/%s/%s", space.Name(), chart.Name(), version.Number()))
+		return nil, errors.NewConflict("charts.name.exists", "${name} exist", errors.M{
+			"name": fmt.Sprintf("%s/%s/%s", space.Name(), chart.Name(), version.Number()),
+		})
 	}
 	err = version.PutContent(ctx, data)
 	if err != nil {
