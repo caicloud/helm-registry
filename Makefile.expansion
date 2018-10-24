@@ -1,0 +1,3 @@
+GO_ONBUILD_IMAGE := cargo.caicloudprivatetest.com/caicloud/golang:1.9.2
+GO_BUILD_PLATFORMS := linux/amd64
+DOCKER_IMAGE_PREFIX := helm-
