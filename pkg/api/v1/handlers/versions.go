@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 
 	"github.com/caicloud/helm-registry/pkg/api/models"
 	"github.com/caicloud/helm-registry/pkg/common"
@@ -46,7 +47,9 @@ func DownloadVersion(ctx context.Context) (data []byte, err error) {
 func UpdateVersion(ctx context.Context) (*models.ChartLink, error) {
 	return putVersion(ctx, func(space storage.Space, chart storage.Chart, version storage.Version) error {
 		if !version.Exists(ctx) {
-			return errors.ErrorContentNotFound.Format(fmt.Sprintf("%s/%s/%s", space.Name(), chart.Name(), version.Number()))
+			return errors.NewResponError(http.StatusNotFound, "content.unfound", "${name} not found", errors.M{
+				"name": fmt.Sprintf("%s/%s/%s", space.Name(), chart.Name(), version.Number()),
+			})
 		}
 		return nil
 	})
@@ -66,10 +69,14 @@ func putVersion(ctx context.Context, canSave managerCallback) (link *models.Char
 		}
 		// check chart name and version number
 		if metadata.Name != chart.Name() {
-			return errors.ErrorParamValueError.Format("chart", chart.Name(), metadata.Name)
+			return errors.NewResponError(http.StatusBadRequest, "param.value", "${name} value error", errors.M{
+				"name": "chart",
+			})
 		}
 		if metadata.Version != version.Number() {
-			return errors.ErrorParamValueError.Format("version", version.Number(), metadata.Version)
+			return errors.NewResponError(http.StatusBadRequest, "param.value", "${name} value error", errors.M{
+				"name": "version",
+			})
 		}
 		// check whether can save
 		if err = canSave(space, chart, version); err != nil {
@@ -105,11 +112,15 @@ func getChartFileData(ctx context.Context) ([]byte, error) {
 	}
 	file, _, err := request.Request.FormFile(common.HTTPRequestUploadFileName)
 	if err != nil {
-		return nil, errors.ErrorParamNotFound.Format(common.HTTPRequestUploadFileName)
+		return nil, errors.NewResponError(http.StatusBadRequest, "param.unfound", "${name} unfound", errors.M{
+			"name": common.HTTPRequestUploadFileName,
+		})
 	}
 	data, err := ioutil.ReadAll(file)
 	if err != nil {
-		return nil, errors.ErrorInvalidParam.Format(common.HTTPRequestUploadFileName, err)
+		return nil, errors.NewResponError(http.StatusBadRequest, "param.invalidate", "${name} invalidate", errors.M{
+			"name": common.HTTPRequestUploadFileName,
+		})
 	}
 	return data, nil
 }
@@ -119,7 +130,9 @@ func getMetadataFromArchiveData(data []byte) (*chart.Metadata, error) {
 	// TODO(optimization): Need not load whole chart
 	chart, err := chartutil.LoadArchive(bytes.NewReader(data))
 	if err != nil {
-		return nil, errors.ErrorParamTypeError.Format(common.HTTPRequestUploadFileName, "chart", "unknown")
+		return nil, errors.NewResponError(http.StatusBadRequest, "param.error", "${name} error", errors.M{
+			"name": common.HTTPRequestUploadFileName,
+		})
 	}
 	return chart.Metadata, nil
 }

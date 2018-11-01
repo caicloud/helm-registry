@@ -4,7 +4,11 @@ Copyright 2017 caicloud authors. All rights reserved.
 
 package orchestration
 
-import "github.com/caicloud/helm-registry/pkg/errors"
+import (
+	"net/http"
+
+	"github.com/caicloud/helm-registry/pkg/errors"
+)
 
 // Package describes infomation of a chart in registry
 type Package struct {
@@ -51,11 +55,15 @@ func NewPackage(config map[string]interface{}) (*Package, error) {
 func findBoolFromConfig(config map[string]interface{}, param string) (bool, error) {
 	value, ok := config[param]
 	if !ok {
-		return false, errors.ErrorParamNotFound.Format(param)
+		return false, errors.NewResponError(http.StatusBadRequest, "param.unfound", "${name} unfound", errors.M{
+			"name": param,
+		})
 	}
 	v, ok := value.(bool)
 	if !ok {
-		return false, errors.ErrorParamTypeError.Format(param, "string", "unknown")
+		return false, errors.NewResponError(http.StatusBadRequest, "param.error", "${name} error", errors.M{
+			"name": param,
+		})
 	}
 	return v, nil
 }
@@ -64,11 +72,15 @@ func findBoolFromConfig(config map[string]interface{}, param string) (bool, erro
 func findStringFromConfig(config map[string]interface{}, param string) (string, error) {
 	value, ok := config[param]
 	if !ok {
-		return "", errors.ErrorParamNotFound.Format(param)
+		return "", errors.NewResponError(http.StatusBadRequest, "param.unfound", "${name} unfound", errors.M{
+			"name": param,
+		})
 	}
 	v, ok := value.(string)
 	if !ok {
-		return "", errors.ErrorParamTypeError.Format(param, "string", "unknown")
+		return "", errors.NewResponError(http.StatusBadRequest, "param.error", "${name}exist", errors.M{
+			"name": param,
+		})
 	}
 	return v, nil
 }

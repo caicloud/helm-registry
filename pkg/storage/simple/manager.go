@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"path"
 	"regexp"
 	"sort"
@@ -17,6 +18,7 @@ import (
 	"time"
 
 	"github.com/caicloud/helm-registry/pkg/common"
+	"github.com/caicloud/helm-registry/pkg/errors"
 	"github.com/caicloud/helm-registry/pkg/lock"
 	"github.com/caicloud/helm-registry/pkg/log"
 	"github.com/caicloud/helm-registry/pkg/storage"
@@ -74,7 +76,9 @@ func (factory *simpleSpaceManagerFactory) Create(parameters map[string]interface
 	}
 	locker, err := lock.Create(fmt.Sprint(lockerName), lockerParams)
 	if err != nil {
-		return nil, ErrorInternalUnknown.Format(err)
+		return nil, errors.NewResponError(http.StatusInternalServerError, "error.unknown", "${name} error", errors.M{
+			"name": err.Error(),
+		})
 	}
 	// create storage driver
 	storageDriverName, ok := parameters[common.ParameterNameStorageDriver]
@@ -83,7 +87,9 @@ func (factory *simpleSpaceManagerFactory) Create(parameters map[string]interface
 	}
 	storageDriver, err := driver.Create(fmt.Sprint(storageDriverName), parameters)
 	if err != nil {
-		return nil, ErrorInternalUnknown.Format(err)
+		return nil, errors.NewResponError(http.StatusInternalServerError, "error.unknown", "${name} error", errors.M{
+			"name": err.Error(),
+		})
 	}
 
 	var lockTimeout = lock.TimeoutImmediate
@@ -91,7 +97,9 @@ func (factory *simpleSpaceManagerFactory) Create(parameters map[string]interface
 	if ok {
 		timeout, err := strconv.Atoi(fmt.Sprint(paramLockTimeout))
 		if err != nil {
-			return nil, ErrorInvalidParam.Format(err)
+			return nil, errors.NewResponError(http.StatusBadRequest, "param.invalidate", "${name} invalidate", errors.M{
+				"name": err,
+			})
 		}
 		lockTimeout = time.Duration(timeout) * time.Millisecond
 	}
@@ -121,7 +129,9 @@ func (sm *SpaceManager) Kind() string {
 func (sm *SpaceManager) Create(ctx context.Context, space string) (storage.Space, error) {
 	lock := sm.Lock.Get(space)
 	if !lock.Lock(sm.LockTimeout) {
-		return nil, ErrorLocking.Format("space", space)
+		return nil, errors.NewResponError(http.StatusLocked, "space.lock", "${name} lock", errors.M{
+			"name": space,
+		})
 	}
 	defer lock.Unlock()
 	newSpace, err := sm.Space(ctx, space)
@@ -129,13 +139,17 @@ func (sm *SpaceManager) Create(ctx context.Context, space string) (storage.Space
 		return nil, err
 	}
 	if newSpace.Exists(ctx) {
-		return nil, ErrorResourceExist.Format(space)
+		return nil, errors.NewResponError(http.StatusConflict, "charts.name.exists", "${name} exist", errors.M{
+			"name": space,
+		})
 	}
 	// space does not exist
 	key := path.Join(sm.Prefix, space, statusName)
 	err = sm.Backend.PutContent(ctx, key, []byte(statusSuccess))
 	if err != nil {
-		return nil, ErrorInternalUnknown.Format(err)
+		return nil, errors.NewResponError(http.StatusInternalServerError, "error.unknown", "${name} error", errors.M{
+			"name": err.Error(),
+		})
 	}
 	return sm.Space(ctx, space)
 }
@@ -144,7 +158,9 @@ func (sm *SpaceManager) Create(ctx context.Context, space string) (storage.Space
 func (sm *SpaceManager) Delete(ctx context.Context, space string) error {
 	lock := sm.Lock.Get(space)
 	if !lock.Lock(sm.LockTimeout) {
-		return ErrorLocking.Format("space", space)
+		return errors.NewResponError(http.StatusLocked, "space.lock", "${name} lock", errors.M{
+			"name": space,
+		})
 	}
 	defer lock.Unlock()
 	return deleteKeys(ctx, sm.Backend, path.Join(sm.Prefix, space), true)
@@ -154,7 +170,9 @@ func (sm *SpaceManager) Delete(ctx context.Context, space string) error {
 func (sm *SpaceManager) List(ctx context.Context) ([]string, error) {
 	lock := sm.Lock.Get(allSpacesLockName)
 	if !lock.RLock(sm.LockTimeout) {
-		return nil, ErrorLocking.Format("space manager", allSpacesLockName)
+		return nil, errors.NewResponError(http.StatusLocked, "space.lock", "${name} lock", errors.M{
+			"name": allSpacesLockName,
+		})
 	}
 	defer lock.RUnlock()
 	return list(ctx, sm.Backend, sm.Prefix, validateName, sortNames)
@@ -163,7 +181,9 @@ func (sm *SpaceManager) List(ctx context.Context) ([]string, error) {
 // Space returns a Space that it can manage specific space
 func (sm *SpaceManager) Space(ctx context.Context, space string) (storage.Space, error) {
 	if !validateName(space) {
-		return nil, ErrorInvalidParam.Format("space", space)
+		return nil, errors.NewResponError(http.StatusBadRequest, "space.invalidate", "${name} invalidate", errors.M{
+			"name": space,
+		})
 	}
 	return NewSpace(sm, space)
 }
@@ -196,7 +216,9 @@ func NewSpace(spaceManager *SpaceManager, space string) (*Space, error) {
 		return nil, ErrorNoParameter.Format("spaceManager")
 	}
 	if !validateName(space) {
-		return nil, ErrorInvalidParam.Format("space", space)
+		return nil, errors.NewResponError(http.StatusBadRequest, "space.invalidate", "${name} invalidate", errors.M{
+			"name": space,
+		})
 	}
 	return &Space{spaceManager, path.Join(spaceManager.Prefix, space), space}, nil
 }
@@ -215,7 +237,9 @@ func (s *Space) Name() string {
 func (s *Space) Delete(ctx context.Context, chart string) error {
 	lock := s.SpaceManager.Lock.Get(s.Name(), chart)
 	if !lock.Lock(s.SpaceManager.LockTimeout) {
-		return ErrorLocking.Format("chart", s.Name()+"/"+chart)
+		return errors.NewResponError(http.StatusLocked, "charts.lock", "${name} lock", errors.M{
+			"name": s.Name() + "/" + chart,
+		})
 	}
 	defer lock.Unlock()
 	return deleteKeys(ctx, s.SpaceManager.Backend, path.Join(s.Prefix, chart), true)
@@ -225,7 +249,9 @@ func (s *Space) Delete(ctx context.Context, chart string) error {
 func (s *Space) List(ctx context.Context) ([]string, error) {
 	lock := s.SpaceManager.Lock.Get(s.Name())
 	if !lock.RLock(s.SpaceManager.LockTimeout) {
-		return nil, ErrorLocking.Format("space", s.Name())
+		return nil, errors.NewResponError(http.StatusLocked, "space.lock", "${name} lock", errors.M{
+			"name": s.Name(),
+		})
 	}
 	defer lock.RUnlock()
 	return list(ctx, s.SpaceManager.Backend, s.Prefix, validateName, sortNames)
@@ -260,7 +286,9 @@ func (s *Space) VersionMetadata(ctx context.Context) ([]*storage.Metadata, error
 // Chart returns a Chart for managing specific chart
 func (s *Space) Chart(ctx context.Context, chart string) (storage.Chart, error) {
 	if !validateName(chart) {
-		return nil, ErrorInvalidParam.Format("chart", chart)
+		return nil, errors.NewResponError(http.StatusBadRequest, "charts.invalidate", "${name} invalidate", errors.M{
+			"name": chart,
+		})
 	}
 	return NewChart(s, chart)
 }
@@ -278,7 +306,9 @@ func NewChart(space *Space, chart string) (*Chart, error) {
 		return nil, ErrorNoParameter.Format("space")
 	}
 	if !validateName(chart) {
-		return nil, ErrorInvalidParam.Format("chart", chart)
+		return nil, errors.NewResponError(http.StatusBadRequest, "charts.invalidate", "${name} invalidate", errors.M{
+			"name": chart,
+		})
 	}
 	return &Chart{space, path.Join(space.Prefix, chart), chart}, nil
 }
@@ -297,7 +327,9 @@ func (c *Chart) Name() string {
 func (c *Chart) Delete(ctx context.Context, version string) error {
 	lock := c.Space.SpaceManager.Lock.Get(c.Space.Name(), c.Name(), version)
 	if !lock.Lock(c.Space.SpaceManager.LockTimeout) {
-		return ErrorLocking.Format("version", c.Space.Name()+"/"+c.Name()+"/"+version)
+		return errors.NewResponError(http.StatusLocked, "version.lock", "${name} lock", errors.M{
+			"name": c.Space.Name() + "/" + c.Name() + "/" + version,
+		})
 	}
 	err := deleteKeys(ctx, c.Space.SpaceManager.Backend, path.Join(c.Prefix, version), true)
 	// unlock before return
@@ -317,7 +349,9 @@ func (c *Chart) Delete(ctx context.Context, version string) error {
 func (c *Chart) List(ctx context.Context) ([]string, error) {
 	lock := c.Space.SpaceManager.Lock.Get(c.Space.Name(), c.Name())
 	if !lock.RLock(c.Space.SpaceManager.LockTimeout) {
-		return nil, ErrorLocking.Format("chart", c.Space.Name()+"/"+c.Name())
+		return nil, errors.NewResponError(http.StatusLocked, "charts.lock", "${name} lock", errors.M{
+			"name": c.Space.Name() + "/" + c.Name(),
+		})
 	}
 	defer lock.RUnlock()
 	return list(ctx, c.Space.SpaceManager.Backend, c.Prefix, validateVersion, sortVersions)
@@ -352,7 +386,9 @@ func (c *Chart) VersionMetadata(ctx context.Context) ([]*storage.Metadata, error
 // Version returns a Version for managing specific version
 func (c *Chart) Version(ctx context.Context, version string) (storage.Version, error) {
 	if !validateVersion(version) {
-		return nil, ErrorInvalidParam.Format("version", version)
+		return nil, errors.NewResponError(http.StatusBadRequest, "version.invalidate", "${name} invalidate", errors.M{
+			"name": version,
+		})
 	}
 	return NewVersion(c, version)
 }
@@ -371,7 +407,9 @@ func NewVersion(chart *Chart, version string) (*Version, error) {
 		return nil, ErrorNoParameter.Format("chart")
 	}
 	if !validateVersion(version) {
-		return nil, ErrorInvalidParam.Format("version")
+		return nil, errors.NewResponError(http.StatusBadRequest, "version.invalidate", "${name} invalidate", errors.M{
+			"name": version,
+		})
 	}
 	return &Version{chart, chart.Space.SpaceManager.Backend, path.Join(chart.Prefix, version), version}, nil
 }
@@ -390,7 +428,9 @@ func (v *Version) Number() string {
 func (v *Version) PutContent(ctx context.Context, data []byte) error {
 	lock := v.Chart.Space.SpaceManager.Lock.Get(v.Chart.Space.Name(), v.Chart.Name(), v.Number())
 	if !lock.Lock(v.Chart.Space.SpaceManager.LockTimeout) {
-		return ErrorLocking.Format("version", v.Chart.Space.Name()+"/"+v.Chart.Name()+"/"+v.Number())
+		return errors.NewResponError(http.StatusLocked, "version.lock", "${name} lock", errors.M{
+			"name": v.Chart.Space.Name() + "/" + v.Chart.Name() + "/" + v.Number(),
+		})
 	}
 	defer lock.Unlock()
 	if len(data) <= 0 {
@@ -410,56 +450,78 @@ func (v *Version) PutContent(ctx context.Context, data []byte) error {
 	statusKey := path.Join(v.Prefix, statusName)
 	statusData, err := v.Backend.GetContent(ctx, statusKey)
 	if string(statusData) == statusLocking {
-		return ErrorLocking.Format("chart", v.Chart.Name()+"/"+v.Version)
+		return errors.NewResponError(http.StatusLocked, "charts.lock", "${name} lock", errors.M{
+			"name": v.Chart.Name() + "/" + v.Version,
+		})
 	}
 	// Create a `statusName` file with `statusLocking` to lock the place
 	err = v.Backend.PutContent(ctx, statusKey, []byte(statusLocking))
 	if err != nil {
-		return ErrorInternalUnknown.Format(err)
+		return errors.NewResponError(http.StatusInternalServerError, "error.unknown", "${name} error", errors.M{
+			"name": err.Error(),
+		})
 	}
 	// Validate chart
 	chart, err := chartutil.LoadArchive(bytes.NewReader(data))
 	if err != nil {
-		return ErrorParamTypeError.Format("chart", "gzip", "unknown")
+		return errors.NewResponError(http.StatusBadRequest, "param.error", "${name} error", errors.M{
+			"name": "chart",
+		})
 	}
 	// Coalesce metadata
 	metadata, err := storage.CoalesceMetadata(chart)
 	if err != nil {
-		return ErrorInvalidParam.Format("metadata", err.Error())
+		return errors.NewResponError(http.StatusBadRequest, "charts.invalidate", "${name} error", errors.M{
+			"name": chart,
+		})
 	}
 	// Coalesce values
 	values, err := chartutil.CoalesceValues(chart, chart.Values)
 	if err != nil {
-		return ErrorInvalidParam.Format("values", err.Error())
+		return errors.NewResponError(http.StatusBadRequest, "param.invalidate", "${name} error", errors.M{
+			"name": chart.Values,
+		})
 	}
 
 	// Store chart
 	err = v.Backend.PutContent(ctx, path.Join(v.Prefix, chartPackageName), data)
 	if err != nil {
-		return ErrorInternalUnknown.Format(err)
+		return errors.NewResponError(http.StatusInternalServerError, "error.unknown", "${name} error", errors.M{
+			"name": err.Error(),
+		})
 	}
 	// Store metadata
 	data, err = json.Marshal(metadata)
 	if err != nil {
-		return ErrorInternalUnknown.Format(err)
+		return errors.NewResponError(http.StatusInternalServerError, "error.unknown", "${name} error", errors.M{
+			"name": err.Error(),
+		})
 	}
 	err = v.Backend.PutContent(ctx, path.Join(v.Prefix, metadataName), data)
 	if err != nil {
-		return ErrorInternalUnknown.Format(err)
+		return errors.NewResponError(http.StatusInternalServerError, "error.unknown", "${name} error", errors.M{
+			"name": err.Error(),
+		})
 	}
 	// Store values
 	data, err = json.Marshal(values)
 	if err != nil {
-		return ErrorInternalUnknown.Format(err)
+		return errors.NewResponError(http.StatusInternalServerError, "error.unknown", "${name} error", errors.M{
+			"name": err.Error(),
+		})
 	}
 	err = v.Backend.PutContent(ctx, path.Join(v.Prefix, valuesName), data)
 	if err != nil {
-		return ErrorInternalUnknown.Format(err)
+		return errors.NewResponError(http.StatusInternalServerError, "error.unknown", "${name} error", errors.M{
+			"name": err.Error(),
+		})
 	}
 	// Write `statusSuccess` to `statusName` file
 	err = v.Backend.PutContent(ctx, statusKey, []byte(statusSuccess))
 	if err != nil {
-		return ErrorInternalUnknown.Format(err)
+		return errors.NewResponError(http.StatusInternalServerError, "error.unknown", "${name} error", errors.M{
+			"name": err.Error(),
+		})
 	}
 	// Succeed in storing chart
 	success = true
@@ -470,7 +532,9 @@ func (v *Version) PutContent(ctx context.Context, data []byte) error {
 func (v *Version) GetContent(ctx context.Context) ([]byte, error) {
 	lock := v.Chart.Space.SpaceManager.Lock.Get(v.Chart.Space.Name(), v.Chart.Name(), v.Number())
 	if !lock.RLock(v.Chart.Space.SpaceManager.LockTimeout) {
-		return nil, ErrorLocking.Format("version", v.Chart.Space.Name()+"/"+v.Chart.Name()+"/"+v.Number())
+		return nil, errors.NewResponError(http.StatusLocked, "version.lock", "${name} lock", errors.M{
+			"name": v.Chart.Space.Name() + "/" + v.Chart.Name() + "/" + v.Number(),
+		})
 	}
 	defer lock.RUnlock()
 	if err := v.Validate(ctx); err != nil {
@@ -479,7 +543,9 @@ func (v *Version) GetContent(ctx context.Context) ([]byte, error) {
 	path := path.Join(v.Prefix, chartPackageName)
 	data, err := v.Chart.Space.SpaceManager.Backend.GetContent(ctx, path)
 	if err != nil {
-		return nil, ErrorContentNotFound.Format(v.Prefix)
+		return nil, errors.NewResponError(http.StatusNotFound, "content.unfound", "${name} not found", errors.M{
+			"name": v.Prefix,
+		})
 	}
 	return data, nil
 }
@@ -488,16 +554,22 @@ func (v *Version) GetContent(ctx context.Context) ([]byte, error) {
 func (v *Version) Validate(ctx context.Context) error {
 	lock := v.Chart.Space.SpaceManager.Lock.Get(v.Chart.Space.Name(), v.Chart.Name(), v.Number())
 	if !lock.RLock(v.Chart.Space.SpaceManager.LockTimeout) {
-		return ErrorLocking.Format("version", v.Chart.Space.Name()+"/"+v.Chart.Name()+"/"+v.Number())
+		return errors.NewResponError(http.StatusLocked, "version.lock", "${name} lock", errors.M{
+			"name": v.Chart.Space.Name() + "/" + v.Chart.Name() + "/" + v.Number(),
+		})
 	}
 	defer lock.RUnlock()
 	data, err := v.Backend.GetContent(ctx, path.Join(v.Prefix, statusName))
 	if err != nil {
-		return ErrorContentNotFound.Format(v.Prefix)
+		return errors.NewResponError(http.StatusNotFound, "content.unfound", "${name} not found", errors.M{
+			"name": v.Prefix,
+		})
 	}
 	status := string(data)
 	if status != statusSuccess {
-		return ErrorInvalidStatus.Format("version", status)
+		return errors.NewResponError(http.StatusLocked, "charts.invalidate", "${name} lock", errors.M{
+			"name": v.Chart.Space.Name() + "/" + v.Chart.Name() + "/" + v.Number(),
+		})
 	}
 	return nil
 }
@@ -511,7 +583,9 @@ func (v *Version) Exists(ctx context.Context) bool {
 func (v *Version) Metadata(ctx context.Context) (*storage.Metadata, error) {
 	lock := v.Chart.Space.SpaceManager.Lock.Get(v.Chart.Space.Name(), v.Chart.Name(), v.Number())
 	if !lock.RLock(v.Chart.Space.SpaceManager.LockTimeout) {
-		return nil, ErrorLocking.Format("version", v.Chart.Space.Name()+"/"+v.Chart.Name()+"/"+v.Number())
+		return nil, errors.NewResponError(http.StatusLocked, "version.lock", "${name} lock", errors.M{
+			"name": v.Chart.Space.Name() + "/" + v.Chart.Name() + "/" + v.Number(),
+		})
 	}
 	defer lock.RUnlock()
 	if err := v.Validate(ctx); err != nil {
@@ -521,23 +595,31 @@ func (v *Version) Metadata(ctx context.Context) (*storage.Metadata, error) {
 	pathValue := path.Join(v.Prefix, valuesName)
 	dataValue, err := v.Backend.GetContent(ctx, pathValue)
 	if err != nil {
-		return nil, ErrorContentNotFound.Format(err)
+		return nil, errors.NewResponError(http.StatusNotFound, "content.unfound", "${name} not found", errors.M{
+			"name": err,
+		})
 	}
 
 	typeStr, err := jsonparser.GetString(dataValue, "_config", "controllers", "[0]", "type")
 	if err != nil {
-		return nil, ErrorContentNotFound.Format(err)
+		return nil, errors.NewResponError(http.StatusNotFound, "content.unfound", "${name} not found", errors.M{
+			"name": err,
+		})
 	}
 
 	path := path.Join(v.Prefix, metadataName)
 	data, err := v.Backend.GetContent(ctx, path)
 	if err != nil {
-		return nil, ErrorContentNotFound.Format(v.Prefix)
+		return nil, errors.NewResponError(http.StatusNotFound, "content.unfound", "${name} not found", errors.M{
+			"name": v.Prefix,
+		})
 	}
 	meta := &storage.Metadata{}
 	err = json.Unmarshal(data, meta)
 	if err != nil {
-		return nil, ErrorInternalUnknown.Format(err)
+		return nil, errors.NewResponError(http.StatusInternalServerError, "error.unknown", "${name} error", errors.M{
+			"name": err.Error(),
+		})
 	}
 	meta.Type = typeStr
 
@@ -548,7 +630,9 @@ func (v *Version) Metadata(ctx context.Context) (*storage.Metadata, error) {
 func (v *Version) Values(ctx context.Context) ([]byte, error) {
 	lock := v.Chart.Space.SpaceManager.Lock.Get(v.Chart.Space.Name(), v.Chart.Name(), v.Number())
 	if !lock.RLock(v.Chart.Space.SpaceManager.LockTimeout) {
-		return nil, ErrorLocking.Format("version", v.Chart.Space.Name()+"/"+v.Chart.Name()+"/"+v.Number())
+		return nil, errors.NewResponError(http.StatusLocked, "version.lock", "${name} lock", errors.M{
+			"name": v.Chart.Space.Name() + "/" + v.Chart.Name() + "/" + v.Number(),
+		})
 	}
 	defer lock.RUnlock()
 	if err := v.Validate(ctx); err != nil {
@@ -557,7 +641,9 @@ func (v *Version) Values(ctx context.Context) ([]byte, error) {
 	path := path.Join(v.Prefix, valuesName)
 	data, err := v.Backend.GetContent(ctx, path)
 	if err != nil {
-		return nil, ErrorContentNotFound.Format(v.Prefix)
+		return nil, errors.NewResponError(http.StatusNotFound, "content.unfound", "${name} not found", errors.M{
+			"name": v.Prefix,
+		})
 	}
 	return data, nil
 }
@@ -591,7 +677,9 @@ func list(ctx context.Context, backend driver.StorageDriver, prefix string,
 	validator func(string) bool, sorter func([]string) []string) ([]string, error) {
 	list, err := backend.List(ctx, prefix)
 	if err != nil {
-		return nil, ErrorContentNotFound.Format(prefix)
+		return nil, errors.NewResponError(http.StatusNotFound, "content.unfound", "${name} not found", errors.M{
+			"name": prefix,
+		})
 	}
 	i := 0
 	for _, key := range list {
@@ -615,14 +703,18 @@ func list(ctx context.Context, backend driver.StorageDriver, prefix string,
 func deleteKeys(ctx context.Context, backend driver.StorageDriver, prefix string, forced bool) error {
 	list, err := backend.List(ctx, prefix)
 	if err != nil {
-		return ErrorContentNotFound.Format(prefix)
+		return errors.NewResponError(http.StatusNotFound, "content.unfound", "${name} not found", errors.M{
+			"name": prefix,
+		})
 	}
 	if len(list) > 0 && !forced {
 		return ErrorNeedForcedDelete.Format(prefix)
 	}
 	err = backend.Delete(ctx, prefix)
 	if err != nil {
-		return ErrorInternalUnknown.Format(err)
+		return errors.NewResponError(http.StatusInternalServerError, "error.unknown", "${name} error", errors.M{
+			"name": err.Error(),
+		})
 	}
 	return nil
 }

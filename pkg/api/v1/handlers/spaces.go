@@ -6,6 +6,7 @@ package handlers
 
 import (
 	"context"
+	"net/http"
 	"path"
 	"strings"
 
@@ -44,7 +45,9 @@ func CreateSpace(ctx context.Context) (*models.Link, error) {
 	}
 	if tenant := getTenantName(ctx); tenant != SpecialTenant && name == SpecialTenantSpace {
 		// Must not create a space named library when tenant is not system-tenant.
-		return nil, errors.ErrorInvalidParam.Format("space", "no permission to create space "+SpecialSpace)
+		return nil, errors.NewResponError(http.StatusBadRequest, "space.permission", "${name} no permission invalidate", errors.M{
+			"name": SpecialSpace,
+		})
 	}
 	_, err = common.MustGetSpaceManager().Create(ctx, name)
 	if err != nil {
@@ -66,7 +69,9 @@ func DeleteSpace(ctx context.Context) error {
 	}
 	if tenant := getTenantName(ctx); tenant != SpecialTenant && name == SpecialTenantSpace {
 		// Must not delete a space named library when tenant is not system-tenant.
-		return errors.ErrorInvalidParam.Format("space", "no permission to delete space "+SpecialSpace)
+		return errors.NewResponError(http.StatusBadRequest, "space.permission", "${name} no permission invalidate", errors.M{
+			"name": SpecialSpace,
+		})
 	}
 	return translateError(common.MustGetSpaceManager().Delete(ctx, name), name)
 }

@@ -82,5 +82,9 @@ func NewFormatError(code int, reason string, format string) *Error {
 
 //NewConflict create a conflict error zh-cn
 func NewConflict(reason, message string, data M) *Error {
-	return &Error{NewErrorID(), http.StatusConflict, reason, message, "", data, ""}
+	return &Error{NewErrorID(), http.StatusConflict, APIReseaonPrefix + reason, message, "", data, ""}
+}
+
+func NewResponError(code int, reason, message string, data M) *Error {
+	return &Error{NewErrorID(), code, APIReseaonPrefix + reason, message, "", data, ""}
 }

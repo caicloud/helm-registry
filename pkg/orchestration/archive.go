@@ -8,6 +8,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"net/http"
 	"path/filepath"
 
 	"github.com/caicloud/helm-registry/pkg/errors"
@@ -37,7 +38,9 @@ func Archive(chart *chart.Chart) ([]byte, error) {
 	twriter.Close()
 	zipper.Close()
 	if err != nil {
-		return nil, errors.ErrorInternalUnknown.Format(err.Error())
+		return nil, errors.NewResponError(http.StatusInternalServerError, "error.unknown", "${name} error", errors.M{
+			"name": err.Error(),
+		})
 	}
 	return buf.Bytes(), nil
 }

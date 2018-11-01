@@ -6,6 +6,7 @@ package handlers
 
 import (
 	"context"
+	"net/http"
 	"strings"
 
 	"github.com/caicloud/helm-registry/pkg/common"
@@ -140,7 +141,9 @@ func getLatestMetadata(ctx context.Context, spaceName, chartName string) (metada
 		return nil, err
 	}
 	if len(versionNumbers) <= 0 {
-		return nil, errors.ErrorContentNotFound.Format("metadata")
+		return nil, errors.NewResponError(http.StatusNotFound, "content.unfound", "${name} not found", errors.M{
+			"name": "metadata",
+		})
 	}
 	version, err := chart.Version(ctx, versionNumbers[len(versionNumbers)-1])
 	if err != nil {
