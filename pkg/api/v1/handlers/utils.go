@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"strconv"
 	"strings"
 
@@ -34,7 +35,9 @@ func getRequestFromContext(ctx context.Context) (*restful.Request, error) {
 	if v, ok := value.(*restful.Request); ok {
 		return v, nil
 	}
-	return nil, errors.ErrorUnknownNotFoundError.Format(definition.KeyRequest)
+	return nil, errors.NewResponError(http.StatusInternalServerError, "error.unknown", "${name} error", errors.M{
+		"name": definition.KeyRequest,
+	})
 }
 
 // getPathParameter gets value from request.PathParameter
@@ -45,7 +48,9 @@ func getPathParameter(ctx context.Context, name string) (string, error) {
 	}
 	value := request.PathParameter(name)
 	if len(value) <= 0 {
-		return "", errors.ErrorParamNotFound.Format(name)
+		return "", errors.NewResponError(http.StatusBadRequest, "param.unfound", "${name} unfound", errors.M{
+			"name": name,
+		})
 	}
 	return value, nil
 }
@@ -58,7 +63,9 @@ func getHeaderParameter(ctx context.Context, name string) (string, error) {
 	}
 	value := request.HeaderParameter(name)
 	if len(value) <= 0 {
-		return "", errors.ErrorParamNotFound.Format(name)
+		return "", errors.NewResponError(http.StatusBadRequest, "param.unfound", "${name} unfound", errors.M{
+			"name": name,
+		})
 	}
 	return value, nil
 }
@@ -71,7 +78,9 @@ func getQueryParameter(ctx context.Context, name string) (string, error) {
 	}
 	value := request.QueryParameter(name)
 	if len(value) <= 0 {
-		return "", errors.ErrorParamNotFound.Format(name)
+		return "", errors.NewResponError(http.StatusBadRequest, "param.unfound", "${name} unfound", errors.M{
+			"name": name,
+		})
 	}
 	return value, nil
 }
@@ -203,7 +212,9 @@ func getPaging(ctx context.Context) (int, int, error) {
 	if len(start) > 0 {
 		s, err = strconv.Atoi(start)
 		if err != nil {
-			return 0, 0, errors.ErrorParamTypeError.Format(startName, "number", "string")
+			return 0, 0, errors.NewResponError(http.StatusBadRequest, "param.error", "${name}exist", errors.M{
+				"name": startName,
+			})
 		}
 	}
 	const limitName = "limit"
@@ -212,7 +223,9 @@ func getPaging(ctx context.Context) (int, int, error) {
 	if len(limit) > 0 {
 		l, err = strconv.Atoi(limit)
 		if err != nil {
-			return 0, 0, errors.ErrorParamTypeError.Format(limitName, "number", "string")
+			return 0, 0, errors.NewResponError(http.StatusBadRequest, "param.error", "${name}exist", errors.M{
+				"name": limitName,
+			})
 		}
 	}
 
@@ -256,7 +269,9 @@ func readDataFromBody(ctx context.Context) ([]byte, error) {
 	}
 	data, err := ioutil.ReadAll(request.Request.Body)
 	if err != nil {
-		return nil, errors.ErrorInvalidParam.Format("config", string(data))
+		return nil, errors.NewResponError(http.StatusBadRequest, "param.invalidate", "${name} invalidate", errors.M{
+			"name": "config",
+		})
 	}
 	return data, nil
 }
@@ -270,7 +285,9 @@ func getChartConfig(ctx context.Context) (*types.OrchestrationConfig, error) {
 	config := &types.OrchestrationConfig{}
 	err = json.Unmarshal(data, config)
 	if err != nil {
-		return nil, errors.ErrorParamTypeError.Format("config", "orchestration config", "unknown")
+		return nil, errors.NewResponError(http.StatusBadRequest, "param.error", "${name}exist", errors.M{
+			"name": "config",
+		})
 	}
 	if err = config.Validate(); err != nil {
 		return nil, err

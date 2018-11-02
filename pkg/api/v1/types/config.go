@@ -6,6 +6,7 @@ package types
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/caicloud/helm-registry/pkg/errors"
 )
@@ -25,10 +26,14 @@ type Save struct {
 // Validate validates whether the info is valid
 func (s *Save) Validate() error {
 	if len(s.Chart) <= 0 {
-		return errors.ErrorParamNotFound.Format("save.chart")
+		return errors.NewResponError(http.StatusBadRequest, "param.unfound", "${name} unfound", errors.M{
+			"name": "save.chart",
+		})
 	}
 	if len(s.Version) <= 0 {
-		return errors.ErrorParamNotFound.Format("save.version")
+		return errors.NewResponError(http.StatusBadRequest, "param.unfound", "${name} unfound", errors.M{
+			"name": "save.version",
+		})
 	}
 	return nil
 }
@@ -52,7 +57,9 @@ func (ac *OrchestrationConfig) Validate() error {
 		return err
 	}
 	if ac.Configs == nil {
-		return errors.ErrorParamNotFound.Format("configs")
+		return errors.NewResponError(http.StatusBadRequest, "param.unfound", "${name} unfound", errors.M{
+			"name": "configs",
+		})
 	}
 	return nil
 }

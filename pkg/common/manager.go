@@ -7,7 +7,7 @@ package common
 import (
 	"context"
 	"fmt"
-	"reflect"
+	"net/http"
 
 	"github.com/caicloud/helm-registry/pkg/errors"
 	"github.com/caicloud/helm-registry/pkg/log"
@@ -27,15 +27,21 @@ func GetSpaceManager() (storage.SpaceManager, error) {
 	}
 	name, ok := Get(ContextNameSpaceManager)
 	if !ok {
-		return nil, errors.ErrorUnknownNotFoundError.Format(ContextNameSpaceManager)
+		return nil, errors.NewResponError(http.StatusInternalServerError, "error.unknown", "${name} error", errors.M{
+			"name": ContextNameSpaceManager,
+		})
 	}
 	value, ok := Get(ContextNameSpaceParameters)
 	if !ok {
-		return nil, errors.ErrorUnknownNotFoundError.Format(ContextNameSpaceParameters)
+		return nil, errors.NewResponError(http.StatusInternalServerError, "error.unknown", "${name} error", errors.M{
+			"name": ContextNameSpaceParameters,
+		})
 	}
 	parameters, ok := value.(map[string]interface{})
 	if !ok {
-		return nil, errors.ErrorInternalTypeError.Format(ContextNameSpaceParameters, "map[string]interface{}", reflect.TypeOf(value).String())
+		return nil, errors.NewResponError(http.StatusInternalServerError, "param.error", "${name} error", errors.M{
+			"name": ContextNameSpaceParameters,
+		})
 	}
 	manager, err := storage.Create(fmt.Sprint(name), parameters)
 	if err != nil {

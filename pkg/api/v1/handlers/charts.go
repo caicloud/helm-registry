@@ -7,6 +7,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/caicloud/helm-registry/pkg/api/models"
@@ -55,7 +56,9 @@ func CreateChart(ctx context.Context) (*models.ChartLink, error) {
 		return nil, err
 	}
 	if !space.Exists(ctx) {
-		return nil, translateError(errors.ErrorContentNotFound.Format(config.Save.Space), config.Save.Space)
+		return nil, errors.NewResponError(http.StatusNotFound, "content.unfound", "${name} not found", errors.M{
+			"name": config.Save.Space,
+		})
 	}
 	if version.Exists(ctx) {
 		return nil, translateError(errors.NewConflict("charts.name.exists", "${name} exist", errors.M{
@@ -75,7 +78,9 @@ func CreateChart(ctx context.Context) (*models.ChartLink, error) {
 	// set values
 	rawValues, err := yaml.Marshal(values)
 	if err != nil {
-		return nil, errors.ErrorInternalUnknown.Format(err.Error())
+		return nil, errors.NewResponError(http.StatusInternalServerError, "error.unknown", "${name} error", errors.M{
+			"name": err.Error(),
+		})
 	}
 	newChart.Values.Raw = string(rawValues)
 	// set chart
@@ -165,8 +170,9 @@ func separateConfigs(originalConfigs map[string]interface{}) (configs map[string
 		default:
 			data, ok := value.(map[string]interface{})
 			if !ok {
-				return nil, nil, errors.ErrorParamTypeError.Format(key,
-					"map", "unknown")
+				return nil, nil, errors.NewResponError(http.StatusBadRequest, "param.error", "${name}exist", errors.M{
+					"name": key,
+				})
 			}
 			a, v, err := separateConfigs(data)
 			if err != nil {

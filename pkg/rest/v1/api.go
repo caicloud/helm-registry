@@ -18,6 +18,7 @@ import (
 	"reflect"
 	"strconv"
 
+	"github.com/caicloud/helm-registry/pkg/errors"
 	"github.com/caicloud/helm-registry/pkg/log"
 	"github.com/caicloud/helm-registry/pkg/rest"
 )
@@ -123,7 +124,9 @@ func (ba *baseAPI) addLocalFile(key, path string) error {
 		return rest.ErrorUnknownLocalError.Format(err.Error())
 	}
 	if info.IsDir() {
-		return rest.ErrorParamTypeError.Format(path, "file", "directory")
+		return errors.NewResponError(http.StatusBadRequest, "param.error", "${name} error", errors.M{
+			"name": path,
+		})
 	}
 	ba.addFile(key, path, nil)
 	return nil

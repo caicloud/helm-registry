@@ -8,7 +8,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"reflect"
+	"net/http"
 
 	"github.com/caicloud/helm-registry/pkg/common"
 	"github.com/caicloud/helm-registry/pkg/errors"
@@ -29,8 +29,9 @@ func convertInterface(name string, inf interface{}) (map[string]interface{}, err
 	}
 	data, ok := inf.(map[string]interface{})
 	if !ok {
-		return nil, errors.ErrorParamTypeError.Format(name,
-			"map[string]interface{}", reflect.TypeOf(inf).String())
+		return nil, errors.NewResponError(http.StatusBadRequest, "param.error", "${param} error", errors.M{
+			"name": name,
+		})
 	}
 	return data, nil
 }
@@ -106,7 +107,9 @@ func create(parent *chart.Chart, configs map[string]interface{}) (*chart.Chart, 
 			// filter invalid chart name
 			if !common.MustGetSpaceManager().Validate(context.Background(),
 				storage.ValidationTypeChartName, key) {
-				return nil, errors.ErrorInvalidParam.Format("chart name", key)
+				return nil, errors.NewResponError(http.StatusBadRequest, "charts.invalidate", "${name} invalidate", errors.M{
+					"name": key,
+				})
 			}
 			deps[key] = data
 		}
@@ -140,14 +143,18 @@ func getChartByPackage(parent *chart.Chart, pkg *Package) (*chart.Chart, error) 
 		return getChart(pkg.Space, pkg.Chart, pkg.Version)
 	}
 	if parent == nil {
-		return nil, errors.ErrorInvalidParam.Format("parent chart", chartName)
+		return nil, errors.NewResponError(http.StatusBadRequest, "charts.invalidate", "${name} invalidate", errors.M{
+			"name": chartName,
+		})
 	}
 	for _, dep := range parent.GetDependencies() {
 		if dep.GetMetadata().Name == pkg.Chart {
 			return dep, nil
 		}
 	}
-	return nil, errors.ErrorContentNotFound.Format(fmt.Sprintf("%s in %s/%s", chartName, parent.Metadata.Name, parent.Metadata.Version))
+	return nil, errors.NewResponError(http.StatusNotFound, "content.unfound", "${name} not found", errors.M{
+		"name": fmt.Sprintf("%s in %s/%s", chartName, parent.Metadata.Name, parent.Metadata.Version),
+	})
 }
 
 // getChart gets a chart
@@ -171,8 +178,9 @@ func getChart(spaceName, chartName, versionNumber string) (*chart.Chart, error) 
 	}
 	c, err := chartutil.LoadArchive(bytes.NewReader(data))
 	if err != nil {
-		return nil, errors.ErrorInternalTypeError.Format(
-			fmt.Sprintf("%s/%s", chartName, versionNumber), "chart", "unknown")
+		return nil, errors.NewResponError(http.StatusInternalServerError, "param.error", "${name} error", errors.M{
+			"name": fmt.Sprintf("%s/%s", chartName, versionNumber),
+		})
 	}
 	return c, nil
 }
