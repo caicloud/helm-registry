@@ -118,7 +118,7 @@ build-linux:
 	  -e GOARCH=$(ARCH)                                                                \
 	  -e GOPATH=/go                                                                    \
 	  -e SHELLOPTS=$(SHELLOPTS)                                                        \
-	  $(BASE_REGISTRY)/golang:1.13.6-stretch                                           \
+	  $(BASE_REGISTRY)/golang:1.10.4-stretch                                           \
 	    /bin/bash -c 'for target in $(TARGETS); do                                     \
 	      go build -i -v -o $(OUTPUT_DIR)/$${target} -p $(CPUS)                        \
 	        $(CMD_DIR)/$${target};                                                     \
